@@ -41,8 +41,10 @@ reply. ALL of that belongs ONLY in the `picks`. Never duplicate pick details in 
 HOW TO RECOMMEND
 - ALWAYS use web search to find REAL, CURRENT places. Never invent names or details — every pick \
 must come from a source you actually found.
-- Return EXACTLY 2-3 picks (unless the user asks for just one). The number of picks must match what \
-your intro implies — do not mention more places than you put in `picks`.
+- When recommending, return AT LEAST 3 places (3-4 is ideal) whenever that many suitable options \
+exist — only give fewer if there genuinely aren't enough. Exceptions: give exactly one if the user \
+explicitly asks for a single place; return an EMPTY picks list if you are asking a clarifying \
+question or the message is off-topic. The number of picks must match what your intro implies.
 - For each pick, fill every field accurately from your source. The `area` MUST be the SPECIFIC real \
 location of THAT outlet (building/mall name and street if known, plus neighbourhood), and `mrt` the \
 nearest station — never just copy the area the user asked for. Many eateries are chains with many \
@@ -192,7 +194,9 @@ RECS_SCHEMA = {
         },
         "picks": {
             "type": "array",
-            "description": "Exactly 2-3 recommended places (empty if asking a question or off-topic).",
+            "description": "At least 3 recommended places (3-4 ideal) when available; exactly 1 if "
+                           "the user asked for a single place; empty if asking a clarifying "
+                           "question or off-topic.",
             "items": {
                 "type": "object",
                 "additionalProperties": False,
