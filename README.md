@@ -6,8 +6,9 @@
 hawker centres, food courts, cafes, and restaurants across many cuisines. It asks about your
 craving, your location (area/MRT), and any dietary needs, then uses **live web search** to suggest
 real, up-to-date places (including recently opened spots), remembers what it has recommended, and
-shows each pick as a card with a Maps link and a source. It is for anyone in Singapore who is
-hungry and can't decide where to makan.
+shows each pick as a structured card — specific address, cuisine, price, review rating, a one-line
+reason, and Maps + source links. It is for anyone in Singapore who is hungry and can't decide where
+to makan.
 
 ## 2. Problem Statement
 
@@ -54,28 +55,36 @@ offline fallback if search is unavailable.
 
 ## 5. Usage Examples
 
-**Example 1 — vague request, the bot asks one question at a time**
+The reply is always a short one-line intro; the recommendations themselves are 2–3 structured
+🌐 cards (name, specific address, cuisine·type·price, ⭐ rating, a one-line "why", and Maps +
+Source links).
+
+**Example 1 — specific craving at a mall**
+```
+You:  japanese food at nex mall
+Bot:  Craving Japanese food at NEX Mall? Here are some options you might enjoy:
+
+      ┌ TORI-Q  🌐 Live web result ──────────────────────────────┐
+      │ Restaurant · Japanese · NEX Mall, 23 Serangoon Central · MRT: Serangoon · ~$10
+      │ ⭐ 4.3 (932 reviews)
+      │ 🍽️ Authentic yakitori with a special 'tare' sauce.
+      │ 📍 Maps · 🔗 Source
+      └──────────────────────────────────────────────────────────┘
+      (plus 2 more cards: Pepper Lunch NEX, &JOY Japanese Food Street NEX)
+```
+
+**Example 2 — vague request, the bot asks one question at a time**
 ```
 You:  I'm hungry but can't decide
 Bot:  No worries lah! Which area or MRT are you near?
 You:  Bugis, and I need halal
-Bot:  Steady! Here are some halal options around there (from a live web search):
-      [🌐 Zam Zam Restaurant] — Bugis · Indian-Muslim · famous murtabak   📍 Maps · 🔗 Source
-      [🌐 Islamic Restaurant]  — Bugis · Indian-Muslim · classic biryani   📍 Maps · 🔗 Source
+Bot:  Craving halal food near Bugis? Here are some good ones:
+      (3 🌐 cards of real halal spots near Bugis, each with a specific address, rating, and source)
 ```
 
-**Example 2 — specific craving, recently opened spots**
-```
-You:  any new cafes that opened recently near Tiong Bahru?
-Bot:  Wah, Tiong Bahru always got new spots! Here are a couple of fresh finds:
-      [🌐 <cafe name>] — Tiong Bahru · Cafe · opened 2024, known for ...   📍 Maps · 🔗 Source
-      [🌐 <cafe name>] — Tiong Bahru · Bakery cafe · sourdough & sandos    📍 Maps · 🔗 Source
-```
-
-Every recommendation is a live web result shown as a 🌐 card with a Maps link and a source you can
-verify. You can also click **🎲 Surprise me** for a random pick from the local guide, toggle
-dietary/budget filters or **Live web search** in the sidebar, and click **📋 Session summary** for
-a recap of everything recommended.
+You can also click **🎲 Surprise me** for a random pick from the local guide, toggle dietary/budget
+filters or **Live web search** in the sidebar, and click **📋 Session summary** for a recap of
+everything recommended.
 
 ## 6. Known Limitations
 
