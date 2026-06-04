@@ -106,8 +106,15 @@ def format_for_prompt(places, limit=25):
 
 
 def surprise_pick(places, prefs, exclude_names=None):
-    """Return one random place matching the current preferences, or None if none fit."""
-    candidates = filter_places(places, prefs, exclude_names)
+    """Return one random place for the current preferences, relaxing soft constraints.
+
+    Uses build_candidates so dietary needs stay strict but budget/venue/area are
+    loosened rather than returning nothing. If every match has already been
+    recommended, it allows a repeat instead of giving up.
+    """
+    candidates, _ = build_candidates(places, prefs, exclude_names)
+    if not candidates:
+        candidates, _ = build_candidates(places, prefs, None)  # allow repeats as a fallback
     return random.choice(candidates) if candidates else None
 
 
