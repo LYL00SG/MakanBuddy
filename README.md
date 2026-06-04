@@ -26,8 +26,9 @@ offline fallback if search is unavailable.
   built-in **web-search tool** plus **structured (JSON-schema) outputs** for the recommendation cards
 - **UI:** Streamlit (chat interface with sidebar filters and rich cards)
 - **Config:** python-dotenv (loads the API key from a `.env` file)
-- **Data:** a curated local `data/places.json` of ~100 real Singapore food places, used as an
-  offline fallback when web search is unavailable
+- **Data:** a local `data/places.json` of ~1,500 Singapore food places (107 hand-curated real
+  places plus entries generated across ~150 real venues island-wide), used as an offline fallback
+  when web search is unavailable
 
 ## 4. Setup Instructions
 
@@ -93,7 +94,8 @@ everything recommended.
   Each card includes a source link so you can verify.
 - **Requires connectivity and API credit.** Every recommendation makes an OpenAI web-search call,
   so it needs internet and uses your API quota. If search is unavailable, the bot falls back to the
-  offline local guide (~100 curated places), which is smaller and not live-updated.
+  offline local guide (~1,500 places), which is not live-updated and whose generated entries are
+  representative stalls at real venues rather than individually verified businesses.
 - **Preference detection is keyword-based.** Location, cuisine, and dietary needs are parsed with
   simple keywords, so unusual phrasing may be missed (the sidebar toggles let you set them manually).
 
@@ -111,7 +113,9 @@ app.py            # Streamlit UI: chat loop, cards, sidebar, surprise, summary
 chatbot.py        # SYSTEM_PROMPT, OpenAI client, web search + structured recommendations
 recommender.py    # Offline fallback dataset: load / filter, surprise pick, Maps links
 memory_store.py   # Persist preferences + past recommendations across runs
-data/places.json  # Curated ~100-place dataset (offline fallback)
+data/places.json       # ~1,500-place dataset (offline fallback)
+data/places_curated.json  # 107 hand-curated real places (frozen base)
+data/generate_places.py   # Regenerates places.json from real venues + curated base
 .env.example      # Template for your OPENAI_API_KEY
 requirements.txt  # Python dependencies
 ```
