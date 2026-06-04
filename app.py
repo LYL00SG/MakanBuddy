@@ -80,8 +80,8 @@ def init_state():
 
 
 def render_card(card):
-    """Render one recommendation card (a verified dataset place or a newer web find)."""
-    if card["kind"] == "verified":
+    """Render one recommendation card (a live web result or a dataset fallback place)."""
+    if card["kind"] == "verified":  # offline dataset fallback
         p = card["place"]
         badges = []
         if p.get("halal"):
@@ -90,24 +90,35 @@ def render_card(card):
             badges.append("🥬 Veg options")
         if p.get("no_pork_no_lard"):
             badges.append("🚫🐖 No pork/lard")
-        badge_str = " · ".join(badges) if badges else ""
         with st.container(border=True):
-            st.markdown(f"**{p['name']}** &nbsp; ✅ *Verified*")
+            st.markdown(f"**{p['name']}** &nbsp; 📒 *From local guide*")
             st.caption(
                 f"{p['type'].replace('_', ' ').title()} · {p['cuisine']} · {p['area']} "
                 f"(MRT: {p['mrt']}) · {esc_money(p['price'])}"
             )
             st.write(f"🍽️ {p['signature_dish']}")
-            if badge_str:
-                st.write(badge_str)
+            if badges:
+                st.write(" · ".join(badges))
             st.markdown(f"[📍 Open in Google Maps]({recommender.maps_link(p)})")
-    else:  # newer find from web search
+    else:  # live web result (structured pick from the model)
+        p = card["pick"]
+        meta = " · ".join(x for x in [
+            (p.get("type") or "").replace("_", " ").title() or None,
+            p.get("cuisine") or None,
+            p.get("area") or None,
+            (f"MRT: {p['mrt']}" if p.get("mrt") else None),
+            (esc_money(p["price"]) if p.get("price") else None),
+        ] if x)
         with st.container(border=True):
-            st.markdown(f"**{card['name']}** &nbsp; ✨ *Newer find*")
-            if card.get("source"):
-                st.markdown(f"[🔗 {card['source']['title']}]({card['source']['uri']})")
-            else:
-                st.caption("Suggested from a live web search.")
+            st.markdown(f"**{p.get('name', 'Unknown')}** &nbsp; 🌐 *Live web result*")
+            if meta:
+                st.caption(meta)
+            if p.get("why"):
+                st.write(f"🍽️ {p['why']}")
+            links = [f"[📍 Maps]({recommender.maps_link({'name': p.get('name', ''), 'area': p.get('area', '')})})"]
+            if p.get("source_url"):
+                links.append(f"[🔗 Source]({p['source_url']})")
+            st.markdown(" &nbsp; ".join(links))
 
 
 def render_message(msg):
@@ -123,20 +134,12 @@ def render_message(msg):
                     st.markdown(f"- [{s['title']}]({s['uri']})")
 
 
-def build_cards(picks, sources):
-    """Turn model-picked names into cards: verified if in the dataset, else newer finds."""
-    places = get_places()
-    cards, new_verified_names = [], []
-    leftover_sources = list(sources)
-    for name in picks:
-        place = recommender.find_by_name(places, name)
-        if place:
-            cards.append({"kind": "verified", "place": place})
-            new_verified_names.append(place["name"])
-        else:
-            source = leftover_sources.pop(0) if leftover_sources else None
-            cards.append({"kind": "newer", "name": name, "source": source})
-    return cards, new_verified_names
+def remember(names):
+    """Add newly recommended place names to memory (no repeats) and persist."""
+    for name in names:
+        if name and name not in st.session_state.past_recommendations:
+            st.session_state.past_recommendations.append(name)
+    memory_store.save_memory(st.session_state.prefs, st.session_state.past_recommendations)
 
 
 def current_prefs(user_msg=None):
@@ -158,66 +161,97 @@ def current_prefs(user_msg=None):
     return prefs
 
 
-def relax_note(dropped, prefs):
-    """Build an honesty note telling the model which constraints were loosened."""
-    parts = []
-    if "area" in dropped and prefs.get("area"):
-        parts.append(f"no places exactly in/around '{prefs['area']}'")
-    if "budget" in dropped and prefs.get("budget"):
-        parts.append("none at the requested budget")
-    if "venue_type" in dropped and prefs.get("venue_type"):
-        parts.append(f"none of the venue type '{prefs['venue_type'].replace('_', ' ')}'")
-    if not parts:
-        return ""
-    return (
-        "NOTE TO YOU (not the user): the candidate list was widened because "
-        + ", and ".join(parts)
-        + ". Be upfront that these picks may not exactly match — e.g. a few MRT stops away "
-        "or a different budget — and do not overstate how near or perfect they are."
+def constraints_note(prefs, past_recs):
+    """Describe the user's preferences and already-suggested places for the model prompt."""
+    bits = []
+    if prefs.get("area"):
+        bits.append(f"near {prefs['area']} (MRT/area)")
+    if prefs.get("cuisine"):
+        bits.append(f"cuisine: {prefs['cuisine']}")
+    if prefs.get("venue_type"):
+        bits.append(f"venue type: {prefs['venue_type'].replace('_', ' ')}")
+    if prefs.get("budget"):
+        bits.append(f"budget around {prefs['budget']}")
+    diet = [d for d, k in (("halal", "halal"), ("vegetarian options", "vegetarian_options"),
+                           ("no pork/lard", "no_pork_no_lard")) if prefs.get(k)]
+    if diet:
+        bits.append("dietary (must satisfy): " + ", ".join(diet))
+
+    note = ""
+    if bits:
+        note += ("USER PREFERENCES (dietary needs are mandatory; honour area/cuisine/budget but "
+                 "you may relax the area if nothing fits, saying so honestly): "
+                 + "; ".join(bits) + ". ")
+    if past_recs:
+        note += ("Do NOT repeat these already-suggested places: "
+                 + ", ".join(past_recs[-15:]) + ". ")
+    return note.strip()
+
+
+def offline_recommend(prefs, intro):
+    """Append a recommendation drawn from the local dataset (used when web search fails)."""
+    candidates, _ = recommender.build_candidates(
+        get_places(), prefs, st.session_state.past_recommendations
     )
+    picks = candidates[:3]
+    if not picks:
+        return False
+    remember([p["name"] for p in picks])
+    st.session_state.messages.append({
+        "role": "assistant", "content": intro,
+        "cards": [{"kind": "verified", "place": p} for p in picks],
+    })
+    return True
 
 
 def handle_turn(user_msg):
-    """Process a user message: filter candidates, call Gemini, render reply and cards."""
+    """Process a user message: web-search for live recommendations, with a dataset fallback."""
     st.session_state.messages.append({"role": "user", "content": user_msg, "cards": []})
 
     prefs = current_prefs(user_msg)
-    candidates, dropped = recommender.build_candidates(
-        get_places(), prefs, st.session_state.past_recommendations
-    )
-    use_search = (
-        st.session_state.get("newer_toggle", False)
-        or chatbot.wants_newer(user_msg)
-        or not candidates
-    )
-    context = recommender.format_for_prompt(candidates)
-    note = relax_note(dropped, prefs)
     history = [
         {"role": m["role"], "content": m["content"]}
         for m in st.session_state.messages[:-1]
         if m["content"]
     ][-MAX_HISTORY_TURNS:]
 
-    with st.spinner("Finding good makan..."):
-        result = chatbot.get_response(
-            get_client()[0], history, user_msg, context, use_search, note
-        )
+    # Web-first (default). The sidebar toggle lets the user switch to offline dataset mode.
+    if not st.session_state.get("web_toggle", True):
+        if not offline_recommend(prefs, "Here are some picks from my local guide 📒:"):
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": "Hmm, nothing in my local guide matches those filters — try loosening them!",
+                "cards": [],
+            })
+        return
+
+    note = constraints_note(prefs, st.session_state.past_recommendations)
+    with st.spinner("Searching the web for the latest makan..."):
+        result = chatbot.get_response(get_client()[0], history, user_msg, note)
 
     if result["error"]:
+        # Web search failed (quota/network) — fall back to the offline dataset.
+        if not offline_recommend(
+            prefs, f"⚠️ {result['error']}\n\nMeanwhile, here are some picks from my local guide 📒:"
+        ):
+            st.session_state.messages.append(
+                {"role": "assistant", "content": f"⚠️ {result['error']}", "cards": []}
+            )
+        return
+
+    if not result["picks"]:
+        # Clarifying question or off-topic redirect — show the reply, no cards.
         st.session_state.messages.append(
-            {"role": "assistant", "content": f"⚠️ {result['error']}", "cards": []}
+            {"role": "assistant", "content": result["reply"], "cards": []}
         )
         return
 
-    cards, new_names = build_cards(result["picks"], result["sources"])
-    for name in new_names:
-        if name not in st.session_state.past_recommendations:
-            st.session_state.past_recommendations.append(name)
-    memory_store.save_memory(st.session_state.prefs, st.session_state.past_recommendations)
-    st.session_state.messages.append(
-        {"role": "assistant", "content": result["reply"], "cards": cards,
-         "sources": result["sources"]}
-    )
+    remember([p.get("name") for p in result["picks"]])
+    st.session_state.messages.append({
+        "role": "assistant", "content": result["reply"],
+        "cards": [{"kind": "web", "pick": p} for p in result["picks"]],
+        "sources": result["sources"],
+    })
 
 
 def do_surprise():
@@ -283,8 +317,9 @@ with st.sidebar:
         "Budget", BUDGET_OPTIONS, horizontal=True, key="budget_choice",
         format_func=lambda v: BUDGET_LABELS[v],
     )
-    st.toggle("Include newer places (web search)", key="newer_toggle",
-              help="Let Makan Buddy search the web for newer or trending spots.")
+    st.toggle("Live web search (latest info)", key="web_toggle", value=True,
+              help="On: search the web for the latest, real places. Off: use the offline "
+                   "local guide only (no API cost).")
 
     st.divider()
     st.header("What I know about you")

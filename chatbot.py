@@ -6,6 +6,7 @@ and the session-summary helper. All network calls are wrapped so a failure
 returns a friendly message instead of crashing the app.
 """
 
+import json
 import os
 import re
 
@@ -22,12 +23,10 @@ WEB_SEARCH_TOOLS = ["web_search", "web_search_preview"]
 
 # Delimiter the model uses to list the exact place names it recommended this turn,
 # on a final "PICKS:" line that the app parses out of the visible reply.
-PICKS_DELIM = "||"
-
 # --- The designed system prompt (named constant, per the capstone spec) ---------
 SYSTEM_PROMPT = """You are "Makan Buddy", a warm, friendly Singaporean food guide who helps people \
-decide where to eat across Singapore. You recommend specific food PLACES — hawker centres, food \
-courts, cafes, and restaurants of all cuisines.
+decide where to eat across Singapore. You recommend specific, real food PLACES — hawker centres, \
+food courts, cafes, and restaurants of all cuisines.
 
 PERSONALITY & TONE
 - Speak like a friendly local makan kaki. Use light, natural Singlish sprinkles (lah, can, shiok, \
@@ -35,48 +34,34 @@ sedap, steady) but stay clear and easy to read. Do not overdo it.
 - Be encouraging and concise. No long essays.
 
 HOW TO RECOMMEND
-- You will be given a CANDIDATE LIST of real places that already match the user's stated \
-preferences. Recommend ONLY places from that list. Never invent stall names, addresses, or details.
+- ALWAYS use web search to find REAL, CURRENT places with up-to-date information (recently opened \
+spots, current popularity, what they are known for). Never invent stall names or details — every \
+pick must come from a source you actually found.
 - Recommend a shortlist of 2-3 places per turn so the user can choose, unless they ask for just one.
 - For each pick, give one short, vivid reason (signature dish, vibe, or why it fits their craving / \
-location / dietary need).
+location / dietary need), and fill in every field accurately from your sources.
 - Respect dietary needs strictly. If the user says halal, vegetarian, or no pork, only suggest \
-places that satisfy it.
+places that genuinely satisfy it.
+- Honour the user's stated area/MRT, cuisine, and budget. If you cannot find something exactly in \
+their area, say so honestly (e.g. "a few stops away") rather than overstating how near it is.
 
 ASKING QUESTIONS (when the request is vague)
 - If you do not yet know enough to recommend well, ask ONE most-useful question at a time — usually \
-in this order: location (which area or MRT?), then dietary needs, then craving or budget. Do not \
-interrogate with many questions at once.
+location (which area or MRT?), then dietary needs, then craving or budget. In that case, return an \
+empty picks list and put your question in the reply. Do not interrogate with many questions at once.
 
 MEMORY
 - You are given the user's saved preferences and places already recommended this session. Refer back \
-to them naturally ("since you liked laksa earlier...") and do NOT repeat a place you already suggested.
-
-NEWER / WEB RESULTS
-- If web search results are provided, you may use them ONLY for genuinely newer or trending places, \
-or when nothing in the candidate list fits. Make clear these are newer finds.
+to them naturally and do NOT repeat a place you already suggested.
 
 STAYING ON TOPIC
 - You only talk about Singapore food and where to eat. If asked anything off-topic, politely and \
-playfully steer back to food.
-
-OUTPUT FORMAT (important)
-- Write your friendly reply first.
-- Then, on the very LAST line, output exactly: PICKS: Name 1 || Name 2 || Name 3
-  listing the exact names of the places you recommended this turn, separated by "||".
-- If you are only asking a clarifying question and recommended nothing, output exactly: PICKS:
-- Never mention the PICKS line in your prose; it is for the app to read.
+playfully steer back to food (return an empty picks list).
 """
-
-# Hints that suggest the user wants newer/trending places, which auto-enables search.
-_NEWER_HINTS = [
-    "new ", "newer", "just opened", "recently opened", "latest", "trending",
-    "hidden gem", "viral", "this year", "2024", "2025", "2026", "newly",
-]
 
 
 def _friendly_error(exc):
-    """Turn a raw Gemini/network exception into a short, in-character user message."""
+    """Turn a raw OpenAI/network exception into a short, in-character user message."""
     text = str(exc)
     low = text.lower()
 
@@ -126,12 +111,6 @@ def init_client():
             "from https://platform.openai.com/api-keys"
         )
     return OpenAI(api_key=api_key)
-
-
-def wants_newer(user_msg):
-    """Return True if the message hints the user wants newer or trending places."""
-    msg = user_msg.lower()
-    return any(hint in msg for hint in _NEWER_HINTS)
 
 
 def extract_prefs(user_msg, prefs, known_areas=None):
@@ -184,21 +163,46 @@ def extract_prefs(user_msg, prefs, known_areas=None):
     return prefs
 
 
-def _build_input(history, user_msg, candidate_context, relax_note=""):
+# JSON schema that forces the model to return a friendly reply plus structured picks,
+# so we can render rich cards even while the web_search tool is active.
+RECS_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "reply": {"type": "string"},
+        "picks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    "area": {"type": "string"},
+                    "mrt": {"type": "string"},
+                    "cuisine": {"type": "string"},
+                    "type": {"type": "string"},
+                    "price": {"type": "string"},
+                    "why": {"type": "string"},
+                    "source_url": {"type": "string"},
+                },
+                "required": ["name", "area", "mrt", "cuisine", "type", "price", "why",
+                             "source_url"],
+            },
+        },
+    },
+    "required": ["reply", "picks"],
+}
+
+
+def _build_input(history, user_msg, constraints_note=""):
     """Assemble the Responses API `input` list from prior turns and the current message."""
     items = []
     for turn in history:
         role = "assistant" if turn["role"] == "assistant" else "user"
         items.append({"role": role, "content": turn["content"]})
 
-    note = f"{relax_note}\n\n" if relax_note else ""
-    current = (
-        "CANDIDATE LIST (recommend only from these unless using web results):\n"
-        f"{candidate_context}\n\n"
-        f"{note}"
-        f"User message: {user_msg}"
-    )
-    items.append({"role": "user", "content": current})
+    note = f"{constraints_note}\n\n" if constraints_note else ""
+    items.append({"role": "user", "content": f"{note}User message: {user_msg}"})
     return items
 
 
@@ -230,17 +234,20 @@ def _is_tool_error(exc):
     return tool_words and fault_words
 
 
-def _create_response(client, input_items, use_search):
-    """Call the Responses API, trying web-search tool variants then degrading gracefully.
+def _create_structured(client, input_items):
+    """Call the Responses API with web search + structured JSON output.
 
-    Returns (response, used_search). Falls back to a no-tool call only on tool-related
-    errors; quota/auth/network errors propagate to the caller's error handler.
+    Tries the web-search tool variants, degrading to no tool only on tool-related
+    errors. Returns (response, used_search); quota/auth/network errors propagate.
     """
-    base = {"model": MODEL_NAME, "instructions": SYSTEM_PROMPT,
-            "input": input_items, "temperature": 0.7}
-    if not use_search:
-        return client.responses.create(**base), False
-
+    base = {
+        "model": MODEL_NAME,
+        "instructions": SYSTEM_PROMPT,
+        "input": input_items,
+        "temperature": 0.5,
+        "text": {"format": {"type": "json_schema", "name": "recommendations",
+                             "schema": RECS_SCHEMA, "strict": True}},
+    }
     for tool in WEB_SEARCH_TOOLS:
         try:
             return client.responses.create(**base, tools=[{"type": tool}]), True
@@ -248,69 +255,43 @@ def _create_response(client, input_items, use_search):
             if not _is_tool_error(exc):
                 raise  # real error (quota/auth/network) — let the caller handle it
             continue  # this tool name not supported; try the next variant
-    # No web-search variant worked; answer from the dataset instead.
+    # No web-search variant worked; answer from the model's own knowledge instead.
     return client.responses.create(**base), False
 
 
-def _split_picks(text):
-    """Separate the visible reply from the trailing PICKS line; return (reply, picks)."""
-    match = re.search(r"PICKS:\s*(.*)\s*$", text, flags=re.IGNORECASE | re.DOTALL)
-    if not match:
-        return text.strip(), []
-    reply = text[: match.start()].strip()
-    raw = match.group(1).strip()
-    picks = [p.strip() for p in raw.split(PICKS_DELIM) if p.strip()] if raw else []
-    return reply, picks
+def get_response(client, history, user_msg, constraints_note=""):
+    """Recommend live places via OpenAI web search, returning a structured result dict.
 
-
-def _bold_names(text):
-    """Extract bolded names from a reply, used as a fallback when no PICKS line is present.
-
-    The web-search tool makes the model format picks as **bold** with inline citations
-    instead of a PICKS line, so we recover the place names from the bold markdown.
+    Returns keys: reply, picks (list of dicts with name/area/mrt/cuisine/type/price/
+    why/source_url), sources (list of {title,uri}), used_search (bool), and error
+    (None or a user-facing message).
     """
-    names, seen = [], set()
-    for raw in re.findall(r"\*\*(.+?)\*\*", text):
-        name = raw.strip().strip(":").strip()
-        if len(name) >= 3 and name.lower() not in seen:
-            seen.add(name.lower())
-            names.append(name)
-    return names
-
-
-def get_response(client, history, user_msg, candidate_context, use_search=False, relax_note=""):
-    """Send the conversation to OpenAI and return a structured result dict.
-
-    `relax_note` is an optional honesty note (e.g. "no exact-area match, picks are
-    a few stops away") injected so the bot does not overstate how well picks fit.
-    Returns keys: reply, picks (list of place names), sources (list of {title,uri}),
-    used_search (bool), and error (None or a user-facing message).
-    """
-    input_items = _build_input(history, user_msg, candidate_context, relax_note)
+    input_items = _build_input(history, user_msg, constraints_note)
 
     try:
-        response, used_search = _create_response(client, input_items, use_search)
+        response, used_search = _create_structured(client, input_items)
     except Exception as exc:  # noqa: BLE001 - surface any API/network error gracefully
-        return {
-            "reply": "", "picks": [], "sources": [], "used_search": use_search,
-            "error": _friendly_error(exc),
-        }
+        return {"reply": "", "picks": [], "sources": [], "used_search": True,
+                "error": _friendly_error(exc)}
 
     text = (getattr(response, "output_text", None) or "").strip()
     if not text:
-        return {
-            "reply": "", "picks": [], "sources": [], "used_search": used_search,
-            "error": "Hmm, I got an empty reply from the model. Try rephrasing your request.",
-        }
+        return {"reply": "", "picks": [], "sources": [], "used_search": used_search,
+                "error": "Hmm, I got an empty reply from the model. Try rephrasing your request."}
 
-    reply, picks = _split_picks(text)
-    # Web search makes the model drop the PICKS line, so recover names from bold markdown.
-    if not picks and used_search:
-        picks = _bold_names(reply)
+    try:
+        data = json.loads(text)
+        picks = data.get("picks", []) or []
+        reply = (data.get("reply", "") or "").strip()
+    except (json.JSONDecodeError, AttributeError):
+        # Structured output failed to parse; show the raw text and no cards.
+        return {"reply": text, "picks": [], "sources": _extract_sources(response),
+                "used_search": used_search, "error": None}
+
     return {
         "reply": reply,
         "picks": picks,
-        "sources": _extract_sources(response) if used_search else [],
+        "sources": _extract_sources(response),
         "used_search": used_search,
         "error": None,
     }
@@ -323,7 +304,7 @@ def session_summary(client, history, past_recs, prefs):
         "Write a short, friendly session summary for the user. List the places you recommended "
         f"this session: {', '.join(past_recs) if past_recs else 'none yet'}. "
         f"Detected preferences: {', '.join(pref_bits) if pref_bits else 'none noted'}. "
-        "End with one cheerful line inviting them back. Do NOT output a PICKS line."
+        "End with one cheerful line inviting them back."
     )
     try:
         response = client.responses.create(
@@ -333,6 +314,6 @@ def session_summary(client, history, past_recs, prefs):
             temperature=0.6,
         )
         text = (getattr(response, "output_text", None) or "").strip()
-        return _split_picks(text)[0] if text else "No summary available right now."
+        return text if text else "No summary available right now."
     except Exception as exc:  # noqa: BLE001
         return _friendly_error(exc)
