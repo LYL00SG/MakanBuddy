@@ -83,8 +83,8 @@ Bot:  Craving halal food near Bugis? Here are some good ones:
 ```
 
 The sidebar lets you switch the **Mode** (Live web search vs offline guide), set **Filters**
-(halal / vegetarian / no-pork, venue type, budget), see what the bot has detected about you, and
-review past recommendations. You can also click **🎲 Surprise me** for a random pick from the local
+(halal / vegetarian / no-pork, venue type, budget), see and **remove** the area/cuisine the bot
+inferred from your chat ("Active for your next search"), and review past recommendations. You can also click **🎲 Surprise me** for a random pick from the local
 guide, **📋 Session summary** for a recap, **🧽 Clear preferences** to forget the detected
 area/cuisine, or **🧹 Reset memory** to wipe everything.
 

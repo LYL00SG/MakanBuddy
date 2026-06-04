@@ -21,11 +21,8 @@ MAX_HISTORY_TURNS = 12  # how many prior messages to send to the model for conte
 BUDGET_OPTIONS = ["Any", "$", "$$", "$$$"]
 BUDGET_LABELS = {"Any": "Any", "$": "\\$ cheap", "$$": "\\$\\$ mid", "$$$": "\\$\\$\\$ atas"}
 
-# Friendly labels for the "What I know about you" panel.
-PREF_LABELS = {"area": "📍 Area", "cuisine": "🍲 Cuisine", "venue_type": "🏠 Venue"}
-DIET_LABELS = {
-    "halal": "Halal", "vegetarian_options": "Vegetarian", "no_pork_no_lard": "No pork/lard",
-}
+# Chat-inferred preferences shown as removable chips (dietary/venue/budget live in Filters).
+PREF_LABELS = {"area": "📍 Area", "cuisine": "🍲 Cuisine"}
 
 # Venue-type filter (values map to the dataset "type" field; "Any" means no filter).
 VENUE_FILTER = {
@@ -351,31 +348,24 @@ with st.sidebar:
     st.caption("Filters apply to your next message.")
 
     st.divider()
-    st.header("What I know about you")
+    # Active search context — the area/cuisine inferred from chat, each removable so the
+    # user can correct a mis-parse or drop a stale constraint.
+    st.header("Active for your next search")
     prefs = st.session_state.prefs
-    has_any = False
-
-    # Simple single-value prefs (area, cuisine, venue type).
-    for key, label in PREF_LABELS.items():
-        value = prefs.get(key)
-        if value:
-            shown = value.replace("_", " ").title() if key == "venue_type" else value
-            st.markdown(f"{label}: **{shown}**")
-            has_any = True
-
-    # Budget, with escaped dollar signs.
-    if prefs.get("budget"):
-        st.markdown(f"💵 Budget: **{esc_money(prefs['budget'])}**")
-        has_any = True
-
-    # Dietary needs collapsed into one line of badges.
-    active_diet = [DIET_LABELS[k] for k in DIET_LABELS if prefs.get(k)]
-    if active_diet:
-        st.markdown("🥗 Dietary: " + " · ".join(f"**{d}**" for d in active_diet))
-        has_any = True
-
-    if not has_any:
-        st.caption("Tell me your area, craving, and dietary needs in the chat.")
+    active_keys = [k for k in PREF_LABELS if prefs.get(k)]
+    if active_keys:
+        st.caption("These shape your next recommendation — remove any that's off.")
+        for key in active_keys:
+            label_col, x_col = st.columns([5, 1])
+            label_col.markdown(f"{PREF_LABELS[key]}: **{prefs[key]}**")
+            if x_col.button("✕", key=f"rm_{key}", help=f"Remove {PREF_LABELS[key]}"):
+                st.session_state.prefs.pop(key, None)
+                memory_store.save_memory(
+                    st.session_state.prefs, st.session_state.past_recommendations
+                )
+                st.rerun()
+    else:
+        st.caption("Tell me your area or what you're craving in the chat.")
 
     st.divider()
     # Past recommendations — collapsed so a long history doesn't dominate the sidebar.
