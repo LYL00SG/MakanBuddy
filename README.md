@@ -19,8 +19,8 @@ are concrete and trustworthy, while still being able to surface newer openings v
 ## 3. Technology Stack
 
 - **Language:** Python 3.10+
-- **AI API:** Google Gemini (`gemini-2.5-flash`) via the **google-genai** SDK, with the Google
-  Search grounding tool for newer places
+- **AI API:** OpenAI (`gpt-4o-mini`) via the **openai** Python SDK (Responses API), with the
+  built-in web-search tool for newer places
 - **UI:** Streamlit (chat interface with sidebar filters and rich cards)
 - **Config:** python-dotenv (loads the API key from a `.env` file)
 - **Data:** a curated local `data/places.json` of ~100 real Singapore food places
@@ -36,12 +36,12 @@ are concrete and trustworthy, while still being able to surface newer openings v
    ```bash
    pip install -r requirements.txt
    ```
-3. **Add your API key.** Copy the example env file and paste in your free Gemini key
-   (get one at <https://ai.google.dev>):
+3. **Add your API key.** Copy the example env file and paste in your OpenAI key
+   (create one at <https://platform.openai.com/api-keys>):
    ```bash
    cp .env.example .env      # on Windows: copy .env.example .env
    ```
-   Then edit `.env` and set `GEMINI_API_KEY=...`.
+   Then edit `.env` and set `OPENAI_API_KEY=...`.
 4. **Run the application.**
    ```bash
    streamlit run app.py
@@ -85,9 +85,9 @@ sidebar, and click **📋 Session summary** for a recap of everything recommende
 - **Curated coverage is finite.** The local dataset has ~100 well-known places. For very specific
   or obscure requests the bot relaxes filters or falls back to web search, which can be less precise
   than the curated entries.
-- **Web-sourced ("Newer find") results are not verified.** They come from live Google Search
-  grounding and may occasionally be outdated (e.g. a place that has since closed) or lack full
-  details. Always check the source link.
+- **Web-sourced ("Newer find") results are not verified.** They come from a live web search and
+  may occasionally be outdated (e.g. a place that has since closed) or lack full details. Always
+  check the source link.
 - **Preference detection is keyword-based.** Location, cuisine, and dietary needs are parsed with
   simple keywords, so unusual phrasing may be missed (the sidebar toggles let you set them manually).
 
@@ -102,10 +102,10 @@ sidebar, and click **📋 Session summary** for a recap of everything recommende
 ### Project structure
 ```
 app.py            # Streamlit UI: chat loop, cards, sidebar, surprise, summary
-chatbot.py        # SYSTEM_PROMPT, Gemini client, response + search grounding, summary
+chatbot.py        # SYSTEM_PROMPT, OpenAI client, response + web search, summary
 recommender.py    # Load / filter / format dataset, surprise pick, Maps links
 memory_store.py   # Persist preferences + past recommendations across runs
 data/places.json  # Curated dataset of ~100 Singapore food places
-.env.example      # Template for your GEMINI_API_KEY
+.env.example      # Template for your OPENAI_API_KEY
 requirements.txt  # Python dependencies
 ```

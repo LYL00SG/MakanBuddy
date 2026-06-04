@@ -1,22 +1,24 @@
-"""Gemini-powered conversation logic for Makan Buddy.
+"""OpenAI-powered conversation logic for Makan Buddy.
 
-Holds the named system prompt, the Gemini client setup, the main response call
-(with optional Google Search grounding for newer places), lightweight preference
-extraction, and the session-summary helper. All network calls are wrapped so a
-failure returns a friendly message instead of crashing the app.
+Holds the named system prompt, the OpenAI client setup, the main response call
+(with optional web search for newer places), lightweight preference extraction,
+and the session-summary helper. All network calls are wrapped so a failure
+returns a friendly message instead of crashing the app.
 """
 
 import os
 import re
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
 # Load environment variables from .env as soon as the module is imported.
 load_dotenv()
 
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gpt-4o-mini"
+
+# Built-in web-search tool name(s) to try, in order, for the "newer places" feature.
+WEB_SEARCH_TOOLS = ["web_search", "web_search_preview"]
 
 # Delimiter the model uses to list the exact place names it recommended this turn,
 # on a final "PICKS:" line that the app parses out of the visible reply.
@@ -78,21 +80,29 @@ def _friendly_error(exc):
     text = str(exc)
     low = text.lower()
 
-    # Quota / rate limit (HTTP 429): try to surface a retry hint if present.
-    if "429" in text or "resource_exhausted" in low or "quota" in low or "rate limit" in low:
-        match = re.search(r"retry in ([0-9.]+)s", low) or re.search(r"([0-9.]+)s'", low)
+    # Out of credits / billing (OpenAI insufficient_quota).
+    if "insufficient_quota" in low or ("quota" in low and "billing" in low):
+        return (
+            "Aiyah, my OpenAI credits seem to have run out. 🍜 Please check the billing/credits "
+            "on the OpenAI account for this API key, then try again."
+        )
+
+    # Rate limit (HTTP 429): try to surface a retry hint if present.
+    if "429" in text or "rate limit" in low or "rate_limit" in low or "too many requests" in low:
+        match = re.search(r"retry(?: again)? (?:in|after) ([0-9.]+)\s*s", low)
         when = f"in about {int(round(float(match.group(1))))} seconds" if match else "in a little while"
         return (
-            "Aiyah, makan break! 🍜 I've hit Gemini's free-tier usage limit for now. "
-            f"Please try again {when} — the free tier resets after a short wait (and daily)."
+            "Aiyah, makan break! 🍜 I'm being rate-limited by OpenAI right now. "
+            f"Please try again {when}."
         )
 
     # Authentication / API key problems.
-    if any(k in low for k in ("api key not valid", "api_key_invalid", "permission_denied",
-                              "unauthenticated", " 401", " 403")):
+    if any(k in low for k in ("invalid_api_key", "incorrect api key", "api key not valid",
+                              "api_key_invalid", "permission_denied", "unauthenticated",
+                              " 401", " 403")):
         return (
             "Aiyah, my API key got problem (invalid or not authorised). Please check "
-            "GEMINI_API_KEY in your .env file and restart the app."
+            "OPENAI_API_KEY in your .env file and restart the app."
         )
 
     # Network / service availability.
@@ -108,14 +118,14 @@ def _friendly_error(exc):
 
 
 def init_client():
-    """Create and return a Gemini client, or raise a clear error if the key is missing."""
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key or api_key.strip() in ("", "your_gemini_api_key_here"):
+    """Create and return an OpenAI client, or raise a clear error if the key is missing."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or api_key.strip() in ("", "your_openai_api_key_here"):
         raise RuntimeError(
-            "GEMINI_API_KEY is not set. Copy .env.example to .env and add your key "
-            "from https://ai.google.dev"
+            "OPENAI_API_KEY is not set. Copy .env.example to .env and add your key "
+            "from https://platform.openai.com/api-keys"
         )
-    return genai.Client(api_key=api_key)
+    return OpenAI(api_key=api_key)
 
 
 def wants_newer(user_msg):
@@ -174,12 +184,12 @@ def extract_prefs(user_msg, prefs, known_areas=None):
     return prefs
 
 
-def _build_contents(history, user_msg, candidate_context, relax_note=""):
-    """Assemble the Gemini `contents` list from prior turns and the current message."""
-    contents = []
+def _build_input(history, user_msg, candidate_context, relax_note=""):
+    """Assemble the Responses API `input` list from prior turns and the current message."""
+    items = []
     for turn in history:
-        role = "model" if turn["role"] == "assistant" else "user"
-        contents.append(types.Content(role=role, parts=[types.Part(text=turn["content"])]))
+        role = "assistant" if turn["role"] == "assistant" else "user"
+        items.append({"role": role, "content": turn["content"]})
 
     note = f"{relax_note}\n\n" if relax_note else ""
     current = (
@@ -188,22 +198,58 @@ def _build_contents(history, user_msg, candidate_context, relax_note=""):
         f"{note}"
         f"User message: {user_msg}"
     )
-    contents.append(types.Content(role="user", parts=[types.Part(text=current)]))
-    return contents
+    items.append({"role": "user", "content": current})
+    return items
 
 
 def _extract_sources(response):
-    """Pull web source titles and URLs from grounding metadata, if any."""
-    sources = []
+    """Pull web source titles and URLs from the response's url_citation annotations."""
+    sources, seen = [], set()
     try:
-        meta = response.candidates[0].grounding_metadata
-        for chunk in (meta.grounding_chunks or []):
-            web = getattr(chunk, "web", None)
-            if web and getattr(web, "uri", None):
-                sources.append({"title": getattr(web, "title", "") or web.uri, "uri": web.uri})
-    except (AttributeError, IndexError, TypeError):
+        for item in (response.output or []):
+            if getattr(item, "type", None) != "message":
+                continue
+            for part in (getattr(item, "content", None) or []):
+                for ann in (getattr(part, "annotations", None) or []):
+                    if getattr(ann, "type", None) == "url_citation":
+                        url = getattr(ann, "url", None)
+                        if url and url not in seen:
+                            seen.add(url)
+                            sources.append({"title": getattr(ann, "title", "") or url, "uri": url})
+    except (AttributeError, TypeError):
         pass
     return sources
+
+
+def _is_tool_error(exc):
+    """Return True if the exception looks like an unsupported/invalid web-search tool error."""
+    low = str(exc).lower()
+    tool_words = any(w in low for w in ("web_search", "tool", "tools"))
+    fault_words = any(w in low for w in ("unsupported", "not supported", "invalid", "unknown",
+                                         "not allowed", "does not support"))
+    return tool_words and fault_words
+
+
+def _create_response(client, input_items, use_search):
+    """Call the Responses API, trying web-search tool variants then degrading gracefully.
+
+    Returns (response, used_search). Falls back to a no-tool call only on tool-related
+    errors; quota/auth/network errors propagate to the caller's error handler.
+    """
+    base = {"model": MODEL_NAME, "instructions": SYSTEM_PROMPT,
+            "input": input_items, "temperature": 0.7}
+    if not use_search:
+        return client.responses.create(**base), False
+
+    for tool in WEB_SEARCH_TOOLS:
+        try:
+            return client.responses.create(**base, tools=[{"type": tool}]), True
+        except Exception as exc:  # noqa: BLE001
+            if not _is_tool_error(exc):
+                raise  # real error (quota/auth/network) — let the caller handle it
+            continue  # this tool name not supported; try the next variant
+    # No web-search variant worked; answer from the dataset instead.
+    return client.responses.create(**base), False
 
 
 def _split_picks(text):
@@ -218,36 +264,27 @@ def _split_picks(text):
 
 
 def get_response(client, history, user_msg, candidate_context, use_search=False, relax_note=""):
-    """Send the conversation to Gemini and return a structured result dict.
+    """Send the conversation to OpenAI and return a structured result dict.
 
     `relax_note` is an optional honesty note (e.g. "no exact-area match, picks are
     a few stops away") injected so the bot does not overstate how well picks fit.
     Returns keys: reply, picks (list of place names), sources (list of {title,uri}),
     used_search (bool), and error (None or a user-facing message).
     """
-    config_args = {
-        "system_instruction": SYSTEM_PROMPT,
-        "temperature": 0.7,
-    }
-    if use_search:
-        config_args["tools"] = [types.Tool(google_search=types.GoogleSearch())]
+    input_items = _build_input(history, user_msg, candidate_context, relax_note)
 
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=_build_contents(history, user_msg, candidate_context, relax_note),
-            config=types.GenerateContentConfig(**config_args),
-        )
+        response, used_search = _create_response(client, input_items, use_search)
     except Exception as exc:  # noqa: BLE001 - surface any API/network error gracefully
         return {
             "reply": "", "picks": [], "sources": [], "used_search": use_search,
             "error": _friendly_error(exc),
         }
 
-    text = (getattr(response, "text", None) or "").strip()
+    text = (getattr(response, "output_text", None) or "").strip()
     if not text:
         return {
-            "reply": "", "picks": [], "sources": [], "used_search": use_search,
+            "reply": "", "picks": [], "sources": [], "used_search": used_search,
             "error": "Hmm, I got an empty reply from the model. Try rephrasing your request.",
         }
 
@@ -255,8 +292,8 @@ def get_response(client, history, user_msg, candidate_context, use_search=False,
     return {
         "reply": reply,
         "picks": picks,
-        "sources": _extract_sources(response) if use_search else [],
-        "used_search": use_search,
+        "sources": _extract_sources(response) if used_search else [],
+        "used_search": used_search,
         "error": None,
     }
 
@@ -271,14 +308,13 @@ def session_summary(client, history, past_recs, prefs):
         "End with one cheerful line inviting them back. Do NOT output a PICKS line."
     )
     try:
-        response = client.models.generate_content(
+        response = client.responses.create(
             model=MODEL_NAME,
-            contents=[types.Content(role="user", parts=[types.Part(text=summary_request)])],
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT, temperature=0.6
-            ),
+            instructions=SYSTEM_PROMPT,
+            input=[{"role": "user", "content": summary_request}],
+            temperature=0.6,
         )
-        text = (getattr(response, "text", None) or "").strip()
+        text = (getattr(response, "output_text", None) or "").strip()
         return _split_picks(text)[0] if text else "No summary available right now."
     except Exception as exc:  # noqa: BLE001
         return _friendly_error(exc)
