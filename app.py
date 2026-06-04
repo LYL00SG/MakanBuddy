@@ -16,6 +16,22 @@ st.set_page_config(page_title="Makan Buddy", page_icon="🍜", layout="centered"
 
 MAX_HISTORY_TURNS = 12  # how many prior messages to send to the model for context
 
+# Budget tiers. Values stay as "$"/"$$"/"$$$" for filtering; labels are escaped so
+# Streamlit does not treat the dollar signs as LaTeX math delimiters.
+BUDGET_OPTIONS = ["Any", "$", "$$", "$$$"]
+BUDGET_LABELS = {"Any": "Any", "$": "\\$ cheap", "$$": "\\$\\$ mid", "$$$": "\\$\\$\\$ atas"}
+
+# Friendly labels for the "What I know about you" panel.
+PREF_LABELS = {"area": "📍 Area", "cuisine": "🍲 Cuisine", "venue_type": "🏠 Venue"}
+DIET_LABELS = {
+    "halal": "Halal", "vegetarian_options": "Vegetarian", "no_pork_no_lard": "No pork/lard",
+}
+
+
+def esc_money(text):
+    """Escape dollar signs so Streamlit markdown renders them literally, not as LaTeX."""
+    return str(text).replace("$", "\\$")
+
 
 @st.cache_data
 def get_places():
@@ -79,7 +95,7 @@ def render_card(card):
             st.markdown(f"**{p['name']}** &nbsp; ✅ *Verified*")
             st.caption(
                 f"{p['type'].replace('_', ' ').title()} · {p['cuisine']} · {p['area']} "
-                f"(MRT: {p['mrt']}) · {p['price']}"
+                f"(MRT: {p['mrt']}) · {esc_money(p['price'])}"
             )
             st.write(f"🍽️ {p['signature_dish']}")
             if badge_str:
@@ -241,24 +257,45 @@ with st.sidebar:
     st.toggle("Halal only", key="halal_toggle")
     st.toggle("Vegetarian options", key="veg_toggle")
     st.toggle("No pork / no lard", key="nopork_toggle")
-    st.radio("Budget", ["Any", "$", "$$", "$$$"], horizontal=True, key="budget_choice")
+    st.radio(
+        "Budget", BUDGET_OPTIONS, horizontal=True, key="budget_choice",
+        format_func=lambda v: BUDGET_LABELS[v],
+    )
     st.toggle("Include newer places (web search)", key="newer_toggle",
               help="Let Makan Buddy search the web for newer or trending spots.")
 
     st.divider()
     st.header("What I know about you")
     prefs = st.session_state.prefs
-    detected = {k: v for k, v in prefs.items() if v}
-    if detected:
-        for key, value in detected.items():
-            st.write(f"- **{key.replace('_', ' ')}**: {value}")
-    else:
+    has_any = False
+
+    # Simple single-value prefs (area, cuisine, venue type).
+    for key, label in PREF_LABELS.items():
+        value = prefs.get(key)
+        if value:
+            shown = value.replace("_", " ").title() if key == "venue_type" else value
+            st.markdown(f"{label}: **{shown}**")
+            has_any = True
+
+    # Budget, with escaped dollar signs.
+    if prefs.get("budget"):
+        st.markdown(f"💵 Budget: **{esc_money(prefs['budget'])}**")
+        has_any = True
+
+    # Dietary needs collapsed into one line of badges.
+    active_diet = [DIET_LABELS[k] for k in DIET_LABELS if prefs.get(k)]
+    if active_diet:
+        st.markdown("🥗 Dietary: " + " · ".join(f"**{d}**" for d in active_diet))
+        has_any = True
+
+    if not has_any:
         st.caption("Tell me your area, craving, and dietary needs in the chat.")
 
+    st.divider()
     st.header("Past recommendations")
     if st.session_state.past_recommendations:
         for name in st.session_state.past_recommendations:
-            st.write(f"- {name}")
+            st.markdown(f"🍽️ {name}")
     else:
         st.caption("None yet.")
 
