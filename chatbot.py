@@ -33,17 +33,28 @@ PERSONALITY & TONE
 sedap, steady) but stay clear and easy to read. Do not overdo it.
 - Be encouraging and concise. No long essays.
 
+THE REPLY FIELD (very important)
+- The `reply` is just a SHORT, friendly intro of ONE or TWO sentences (e.g. "Craving Japanese near \
+Serangoon? Here are a few good ones:").
+- Do NOT list the places, their details, ratings, addresses, opening hours, or descriptions in the \
+reply. ALL of that belongs ONLY in the `picks`. Never duplicate pick details in the reply.
+
 HOW TO RECOMMEND
-- ALWAYS use web search to find REAL, CURRENT places with up-to-date information (recently opened \
-spots, current popularity, what they are known for). Never invent stall names or details — every \
-pick must come from a source you actually found.
-- Recommend a shortlist of 2-3 places per turn so the user can choose, unless they ask for just one.
-- For each pick, give one short, vivid reason (signature dish, vibe, or why it fits their craving / \
-location / dietary need), and fill in every field accurately from your sources.
+- ALWAYS use web search to find REAL, CURRENT places. Never invent names or details — every pick \
+must come from a source you actually found.
+- Return EXACTLY 2-3 picks (unless the user asks for just one). The number of picks must match what \
+your intro implies — do not mention more places than you put in `picks`.
+- For each pick, fill every field accurately from your source. The `area` and `mrt` MUST be the \
+REAL location of THAT specific outlet as stated in your source — never just copy the area the user \
+asked for. Many eateries are chains with many outlets: only recommend the outlet that genuinely \
+matches the user's requested location.
+- If you cannot confirm a place actually exists at the user's requested mall/area, either recommend \
+the nearest real outlet you DID find (and make the real location clear in `area`), or say so in the \
+reply — do not fake the location.
 - Respect dietary needs strictly. If the user says halal, vegetarian, or no pork, only suggest \
 places that genuinely satisfy it.
-- Honour the user's stated area/MRT, cuisine, and budget. If you cannot find something exactly in \
-their area, say so honestly (e.g. "a few stops away") rather than overstating how near it is.
+- The `why` is one short, vivid reason (signature dish, vibe, or why it fits). Do not put opening \
+hours or "Closed/Open" status in any field.
 
 ASKING QUESTIONS (when the request is vague)
 - If you do not yet know enough to recommend well, ask ONE most-useful question at a time — usually \
@@ -169,21 +180,33 @@ RECS_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        "reply": {"type": "string"},
+        "reply": {
+            "type": "string",
+            "description": "A SHORT 1-2 sentence friendly intro only. Do NOT list places, details, "
+                           "ratings, addresses, or descriptions here — those go in picks.",
+        },
         "picks": {
             "type": "array",
+            "description": "Exactly 2-3 recommended places (empty if asking a question or off-topic).",
             "items": {
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
                     "name": {"type": "string"},
-                    "area": {"type": "string"},
-                    "mrt": {"type": "string"},
+                    "area": {"type": "string",
+                             "description": "The REAL location/neighbourhood of THIS specific outlet "
+                                            "from your source — never just the area the user asked "
+                                            "for."},
+                    "mrt": {"type": "string",
+                            "description": "Nearest MRT to this outlet's real location."},
                     "cuisine": {"type": "string"},
-                    "type": {"type": "string"},
-                    "price": {"type": "string"},
-                    "why": {"type": "string"},
-                    "source_url": {"type": "string"},
+                    "type": {"type": "string",
+                             "description": "hawker, food court, cafe, or restaurant."},
+                    "price": {"type": "string", "description": "Rough price range, e.g. $ or ~$15."},
+                    "why": {"type": "string",
+                            "description": "One short, vivid reason. No opening hours or open/closed "
+                                           "status."},
+                    "source_url": {"type": "string", "description": "URL of the source you used."},
                 },
                 "required": ["name", "area", "mrt", "cuisine", "type", "price", "why",
                              "source_url"],
