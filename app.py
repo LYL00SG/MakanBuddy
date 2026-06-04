@@ -27,6 +27,13 @@ DIET_LABELS = {
     "halal": "Halal", "vegetarian_options": "Vegetarian", "no_pork_no_lard": "No pork/lard",
 }
 
+# Venue-type filter (values map to the dataset "type" field; "Any" means no filter).
+VENUE_FILTER = {
+    "Any": "Any", "hawker": "🍜 Hawker", "food_court": "🍱 Food court", "cafe": "☕ Cafe",
+    "restaurant": "🍽️ Restaurant", "street": "🌃 Street food",
+}
+VENUE_FILTER_OPTIONS = list(VENUE_FILTER)
+
 
 def esc_money(text):
     """Escape dollar signs so Streamlit markdown renders them literally, not as LaTeX."""
@@ -156,6 +163,9 @@ def current_prefs(user_msg=None):
         prefs["vegetarian_options"] = True
     if st.session_state.get("nopork_toggle"):
         prefs["no_pork_no_lard"] = True
+    venue = st.session_state.get("venue_choice", "Any")
+    if venue != "Any":
+        prefs["venue_type"] = venue
     budget = st.session_state.get("budget_choice", "Any")
     if budget != "Any":
         prefs["budget"] = budget
@@ -287,6 +297,13 @@ def do_summary():
     st.session_state.messages.append({"role": "assistant", "content": text, "cards": []})
 
 
+def do_clear_prefs():
+    """Drop chat-detected preferences (area/cuisine), keeping filter toggles and history."""
+    st.session_state.prefs = {}
+    current_prefs()  # rebuild from the sidebar filter widgets only
+    memory_store.save_memory(st.session_state.prefs, st.session_state.past_recommendations)
+
+
 def do_reset():
     """Clear saved memory and reset the session to a fresh start."""
     memory_store.clear_memory()
@@ -310,17 +327,28 @@ init_state()
 
 # --- Sidebar --------------------------------------------------------------------
 with st.sidebar:
+    # Mode — where recommendations come from (a mode switch, not a filter).
+    st.header("Mode")
+    web_on = st.toggle(
+        "Live web search (latest info)", key="web_toggle", value=True,
+        help="On: search the web for the latest, real places. Off: use the offline "
+             "local guide only (no API cost).",
+    )
+    st.caption("🌐 **Live web** — latest real places from the web." if web_on
+               else "📒 **Offline guide** — local dataset only, no API call.")
+
+    st.divider()
     st.header("Filters")
     st.toggle("Halal only", key="halal_toggle")
     st.toggle("Vegetarian options", key="veg_toggle")
     st.toggle("No pork / no lard", key="nopork_toggle")
+    st.selectbox("Venue", VENUE_FILTER_OPTIONS, key="venue_choice",
+                 format_func=lambda v: VENUE_FILTER[v])
     st.radio(
         "Budget", BUDGET_OPTIONS, horizontal=True, key="budget_choice",
         format_func=lambda v: BUDGET_LABELS[v],
     )
-    st.toggle("Live web search (latest info)", key="web_toggle", value=True,
-              help="On: search the web for the latest, real places. Off: use the offline "
-                   "local guide only (no API cost).")
+    st.caption("Filters apply to your next message.")
 
     st.divider()
     st.header("What I know about you")
@@ -350,21 +378,33 @@ with st.sidebar:
         st.caption("Tell me your area, craving, and dietary needs in the chat.")
 
     st.divider()
-    st.header("Past recommendations")
-    if st.session_state.past_recommendations:
-        for name in st.session_state.past_recommendations:
-            st.markdown(f"🍽️ {name}")
-    else:
-        st.caption("None yet.")
+    # Past recommendations — collapsed so a long history doesn't dominate the sidebar.
+    recs = st.session_state.past_recommendations
+    with st.expander(f"Past recommendations ({len(recs)})", expanded=False):
+        if recs:
+            for name in reversed(recs):  # most recent first
+                st.markdown(f"🍽️ {name}")
+        else:
+            st.caption("None yet.")
 
     st.divider()
     surprise_clicked = st.button("🎲 Surprise me", use_container_width=True)
     summary_clicked = st.button("📋 Session summary", use_container_width=True)
-    reset_clicked = st.button("🧹 Reset memory", use_container_width=True)
+    clear_prefs_clicked = st.button(
+        "🧽 Clear preferences", use_container_width=True,
+        help="Forget the area/cuisine I picked up from chat. Keeps your filters and history.",
+    )
+    reset_clicked = st.button(
+        "🧹 Reset memory", use_container_width=True,
+        help="Wipe everything — preferences and past recommendations.",
+    )
 
 # Sidebar button actions (handled before rendering the chat).
 if reset_clicked:
     do_reset()
+    st.rerun()
+if clear_prefs_clicked:
+    do_clear_prefs()
     st.rerun()
 if surprise_clicked:
     do_surprise()
