@@ -39,15 +39,39 @@ def esc_money(text):
     return str(text).replace("$", "\\$")
 
 
+# Hosts that indicate a fabricated / placeholder source URL (never rendered).
+PLACEHOLDER_HOSTS = {
+    "example.com", "example.org", "example.net", "test.com", "domain.com",
+    "website.com", "yoursite.com", "placeholder.com", "url.com", "link.com",
+}
+
+
+def valid_source_url(url):
+    """Return True only for a real-looking http(s) URL with a non-placeholder domain."""
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        parsed = urlparse(url.strip())
+    except ValueError:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = parsed.netloc.lower().split(":")[0].replace("www.", "")
+    if not host or "." not in host or host.startswith("example."):
+        return False
+    return host not in PLACEHOLDER_HOSTS
+
+
 def link_row(maps_url, source_url=None):
     """Render Maps (and optional Source) as links that open in a new tab.
 
-    Source shows its domain (e.g. "burpple.com") so the user knows what they're
-    trusting before clicking.
+    The source link is shown only when the URL is real (placeholder/invalid URLs
+    like example.com are dropped), with its domain (e.g. "burpple.com") so the
+    user knows what they're trusting before clicking.
     """
     links = [f'<a href="{maps_url}" target="_blank">📍 Maps</a>']
-    if source_url and str(source_url).startswith("http"):
-        domain = urlparse(source_url).netloc.replace("www.", "") or "Source"
+    if valid_source_url(source_url):
+        domain = urlparse(source_url).netloc.replace("www.", "")
         links.append(f'<a href="{source_url}" target="_blank">🔗 {domain}</a>')
     st.markdown(" &nbsp;&nbsp; ".join(links), unsafe_allow_html=True)
 

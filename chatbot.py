@@ -60,6 +60,9 @@ you cannot confirm a place meets the dietary need, do NOT present it as meeting 
 empty or pick a place you can confirm.
 - The `why` is one short, vivid reason (signature dish, vibe, or why it fits). Do not put opening \
 hours or "Closed/Open" status in any field.
+- `source_url` MUST be the real URL of an actual web page you found via search that supports this \
+pick. NEVER use a placeholder like example.com or a made-up URL. If you do not have a real source \
+URL for a pick, leave it empty rather than inventing one.
 
 ASKING QUESTIONS (when the request is vague)
 - If you do not yet know enough to recommend well, ask ONE most-useful question at a time — usually \
@@ -228,7 +231,11 @@ RECS_SCHEMA = {
                     "why": {"type": "string",
                             "description": "One short, vivid reason. No opening hours or open/closed "
                                            "status."},
-                    "source_url": {"type": "string", "description": "URL of the source you used."},
+                    "source_url": {"type": "string",
+                                   "description": "Real URL of an actual web page from your search "
+                                                  "that supports this pick (https://...). Never a "
+                                                  "placeholder like example.com or an invented URL; "
+                                                  "empty string if you have no real source."},
                 },
                 "required": ["name", "area", "mrt", "cuisine", "type", "price", "rating", "dietary",
                              "why", "source_url"],
