@@ -73,6 +73,40 @@ _NEWER_HINTS = [
 ]
 
 
+def _friendly_error(exc):
+    """Turn a raw Gemini/network exception into a short, in-character user message."""
+    text = str(exc)
+    low = text.lower()
+
+    # Quota / rate limit (HTTP 429): try to surface a retry hint if present.
+    if "429" in text or "resource_exhausted" in low or "quota" in low or "rate limit" in low:
+        match = re.search(r"retry in ([0-9.]+)s", low) or re.search(r"([0-9.]+)s'", low)
+        when = f"in about {int(round(float(match.group(1))))} seconds" if match else "in a little while"
+        return (
+            "Aiyah, makan break! 🍜 I've hit Gemini's free-tier usage limit for now. "
+            f"Please try again {when} — the free tier resets after a short wait (and daily)."
+        )
+
+    # Authentication / API key problems.
+    if any(k in low for k in ("api key not valid", "api_key_invalid", "permission_denied",
+                              "unauthenticated", " 401", " 403")):
+        return (
+            "Aiyah, my API key got problem (invalid or not authorised). Please check "
+            "GEMINI_API_KEY in your .env file and restart the app."
+        )
+
+    # Network / service availability.
+    if any(k in low for k in ("deadline", "timeout", "timed out", "unavailable", "503",
+                              "connection", "network", "getaddrinfo", "failed to establish")):
+        return (
+            "Aiyah, cannot reach Gemini right now — looks like a network or service hiccup. "
+            "Please check your connection and try again in a moment."
+        )
+
+    # Fallback: stay friendly and do not dump the raw exception.
+    return "Aiyah, something went wrong reaching the food brain. Please try again in a moment."
+
+
 def init_client():
     """Create and return a Gemini client, or raise a clear error if the key is missing."""
     api_key = os.getenv("GEMINI_API_KEY")
@@ -207,8 +241,7 @@ def get_response(client, history, user_msg, candidate_context, use_search=False,
     except Exception as exc:  # noqa: BLE001 - surface any API/network error gracefully
         return {
             "reply": "", "picks": [], "sources": [], "used_search": use_search,
-            "error": f"Aiyah, I couldn't reach the food brain right now ({exc}). "
-                     "Please check your connection or API key and try again.",
+            "error": _friendly_error(exc),
         }
 
     text = (getattr(response, "text", None) or "").strip()
@@ -248,4 +281,4 @@ def session_summary(client, history, past_recs, prefs):
         text = (getattr(response, "text", None) or "").strip()
         return _split_picks(text)[0] if text else "No summary available right now."
     except Exception as exc:  # noqa: BLE001
-        return f"Couldn't generate a summary right now ({exc})."
+        return _friendly_error(exc)
