@@ -56,8 +56,10 @@ offline fallback if search is unavailable.
 ## 5. Usage Examples
 
 The reply is always a short one-line intro; the recommendations themselves are 2–3 structured
-🌐 cards (name, specific address, cuisine·type·price, ⭐ rating, a one-line "why", and Maps +
-Source links).
+🌐 cards (name, specific address, cuisine·type·price, ⭐ rating, a 🟢 dietary confirmation when you
+asked for one, a one-line "why", and Maps + Source links that open in a new tab). After each set of
+results, **quick-refine buttons** (🔄 More options · 💲 Cheaper · ✨ Fancier) let you iterate
+without typing.
 
 **Example 1 — specific craving at a mall**
 ```

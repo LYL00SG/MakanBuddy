@@ -5,6 +5,8 @@ and cross-run memory (memory_store) into a chat interface with rich place cards,
 sidebar filters, a "surprise me" pick, and a session summary.
 """
 
+from urllib.parse import urlparse
+
 import streamlit as st
 
 import chatbot
@@ -35,6 +37,19 @@ VENUE_FILTER_OPTIONS = list(VENUE_FILTER)
 def esc_money(text):
     """Escape dollar signs so Streamlit markdown renders them literally, not as LaTeX."""
     return str(text).replace("$", "\\$")
+
+
+def link_row(maps_url, source_url=None):
+    """Render Maps (and optional Source) as links that open in a new tab.
+
+    Source shows its domain (e.g. "burpple.com") so the user knows what they're
+    trusting before clicking.
+    """
+    links = [f'<a href="{maps_url}" target="_blank">📍 Maps</a>']
+    if source_url and str(source_url).startswith("http"):
+        domain = urlparse(source_url).netloc.replace("www.", "") or "Source"
+        links.append(f'<a href="{source_url}" target="_blank">🔗 {domain}</a>')
+    st.markdown(" &nbsp;&nbsp; ".join(links), unsafe_allow_html=True)
 
 
 @st.cache_data
@@ -103,7 +118,7 @@ def render_card(card):
             st.write(f"🍽️ {p['signature_dish']}")
             if badges:
                 st.write(" · ".join(badges))
-            st.markdown(f"[📍 Open in Google Maps]({recommender.maps_link(p)})")
+            link_row(recommender.maps_link(p))
     else:  # live web result (structured pick from the model)
         p = card["pick"]
         meta = " · ".join(x for x in [
@@ -117,14 +132,17 @@ def render_card(card):
             st.markdown(f"**{p.get('name', 'Unknown')}** &nbsp; 🌐 *Live web result*")
             if meta:
                 st.caption(meta)
+            extras = []
             if p.get("rating"):
-                st.write(f"⭐ {p['rating']}")
+                extras.append(f"⭐ {p['rating']}")
+            if p.get("dietary"):
+                extras.append(f"🟢 {p['dietary']}")
+            if extras:
+                st.write("  ".join(extras))
             if p.get("why"):
                 st.write(f"🍽️ {p['why']}")
-            links = [f"[📍 Maps]({recommender.maps_link({'name': p.get('name', ''), 'area': p.get('area', '')})})"]
-            if p.get("source_url"):
-                links.append(f"[🔗 Source]({p['source_url']})")
-            st.markdown(" &nbsp; ".join(links))
+            maps = recommender.maps_link({"name": p.get("name", ""), "area": p.get("area", "")})
+            link_row(maps, p.get("source_url"))
 
 
 def render_message(msg):
@@ -404,6 +422,21 @@ if summary_clicked:
 # --- Chat history ---------------------------------------------------------------
 for msg in st.session_state.messages:
     render_message(msg)
+
+# --- Quick follow-up actions (only after the latest recommendation) -------------
+msgs = st.session_state.messages
+if msgs and msgs[-1]["role"] == "assistant" and msgs[-1].get("cards"):
+    st.caption("Quick refine:")
+    fu1, fu2, fu3 = st.columns(3)
+    if fu1.button("🔄 More options", key="fu_more", use_container_width=True):
+        handle_turn("Any other options?")
+        st.rerun()
+    if fu2.button("💲 Cheaper", key="fu_cheap", use_container_width=True):
+        handle_turn("Something cheaper, please")
+        st.rerun()
+    if fu3.button("✨ Fancier", key="fu_fancy", use_container_width=True):
+        handle_turn("Somewhere a bit more upscale")
+        st.rerun()
 
 # --- Chat input -----------------------------------------------------------------
 user_msg = st.chat_input("What are you craving? (e.g. spicy noodles near Bugis, halal)")

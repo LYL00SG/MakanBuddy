@@ -53,7 +53,9 @@ credibility. If there is no rating, leave it empty — never make one up.
 the nearest real outlet you DID find (and make the real location clear in `area`), or say so in the \
 reply — do not fake the location.
 - Respect dietary needs strictly. If the user says halal, vegetarian, or no pork, only suggest \
-places that genuinely satisfy it.
+places that genuinely satisfy it, and set the `dietary` field to confirm it from your source. If \
+you cannot confirm a place meets the dietary need, do NOT present it as meeting it — leave `dietary` \
+empty or pick a place you can confirm.
 - The `why` is one short, vivid reason (signature dish, vibe, or why it fits). Do not put opening \
 hours or "Closed/Open" status in any field.
 
@@ -213,13 +215,19 @@ RECS_SCHEMA = {
                                "description": "Review rating with count if your source has one, "
                                               "e.g. '4.4 (278 reviews)'. Empty string if unknown — "
                                               "never invent a rating."},
+                    "dietary": {"type": "string",
+                                "description": "Dietary status confirmed from your source when "
+                                               "relevant, e.g. 'Halal-certified', 'Halal', "
+                                               "'Vegetarian-friendly', 'No pork'. Empty string if "
+                                               "you cannot confirm — NEVER claim halal/vegetarian "
+                                               "unless your source supports it."},
                     "why": {"type": "string",
                             "description": "One short, vivid reason. No opening hours or open/closed "
                                            "status."},
                     "source_url": {"type": "string", "description": "URL of the source you used."},
                 },
-                "required": ["name", "area", "mrt", "cuisine", "type", "price", "rating", "why",
-                             "source_url"],
+                "required": ["name", "area", "mrt", "cuisine", "type", "price", "rating", "dietary",
+                             "why", "source_url"],
             },
         },
     },
