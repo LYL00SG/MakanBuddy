@@ -158,12 +158,31 @@ def current_prefs(user_msg=None):
     return prefs
 
 
+def relax_note(dropped, prefs):
+    """Build an honesty note telling the model which constraints were loosened."""
+    parts = []
+    if "area" in dropped and prefs.get("area"):
+        parts.append(f"no places exactly in/around '{prefs['area']}'")
+    if "budget" in dropped and prefs.get("budget"):
+        parts.append("none at the requested budget")
+    if "venue_type" in dropped and prefs.get("venue_type"):
+        parts.append(f"none of the venue type '{prefs['venue_type'].replace('_', ' ')}'")
+    if not parts:
+        return ""
+    return (
+        "NOTE TO YOU (not the user): the candidate list was widened because "
+        + ", and ".join(parts)
+        + ". Be upfront that these picks may not exactly match — e.g. a few MRT stops away "
+        "or a different budget — and do not overstate how near or perfect they are."
+    )
+
+
 def handle_turn(user_msg):
     """Process a user message: filter candidates, call Gemini, render reply and cards."""
     st.session_state.messages.append({"role": "user", "content": user_msg, "cards": []})
 
     prefs = current_prefs(user_msg)
-    candidates, _relaxed = recommender.build_candidates(
+    candidates, dropped = recommender.build_candidates(
         get_places(), prefs, st.session_state.past_recommendations
     )
     use_search = (
@@ -172,6 +191,7 @@ def handle_turn(user_msg):
         or not candidates
     )
     context = recommender.format_for_prompt(candidates)
+    note = relax_note(dropped, prefs)
     history = [
         {"role": m["role"], "content": m["content"]}
         for m in st.session_state.messages[:-1]
@@ -179,7 +199,9 @@ def handle_turn(user_msg):
     ][-MAX_HISTORY_TURNS:]
 
     with st.spinner("Finding good makan..."):
-        result = chatbot.get_response(get_client()[0], history, user_msg, context, use_search)
+        result = chatbot.get_response(
+            get_client()[0], history, user_msg, context, use_search, note
+        )
 
     if result["error"]:
         st.session_state.messages.append(

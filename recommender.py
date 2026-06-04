@@ -66,22 +66,23 @@ def filter_places(places, prefs, exclude_names=None):
 def build_candidates(places, prefs, exclude_names=None):
     """Return candidate places, relaxing soft constraints until some are found.
 
-    Dietary flags and the area are kept as long as possible for relevance and
-    safety; budget then venue type then area are dropped in turn only if the
-    stricter filter yields nothing. Returns (candidates, relaxed) where `relaxed`
-    is True if any constraint had to be loosened.
+    Dietary flags are never dropped; budget then venue type then area are dropped
+    in turn only if the stricter filter yields nothing. Returns (candidates,
+    dropped) where `dropped` is the list of constraint keys that had to be loosened
+    (empty when there was an exact match), so callers can be honest about it.
     """
     strict = filter_places(places, prefs, exclude_names)
     if strict:
-        return strict, False
+        return strict, []
 
     # Drop budget, then venue type, then area — but never the dietary requirements.
     for drop in (["budget"], ["budget", "venue_type"], ["budget", "venue_type", "area"]):
         relaxed_prefs = {k: v for k, v in prefs.items() if k not in drop}
         candidates = filter_places(places, relaxed_prefs, exclude_names)
         if candidates:
-            return candidates, True
-    return [], True
+            # Only report constraints the user had actually set.
+            return candidates, [k for k in drop if prefs.get(k)]
+    return [], [k for k in ("budget", "venue_type", "area") if prefs.get(k)]
 
 
 def format_for_prompt(places, limit=25):

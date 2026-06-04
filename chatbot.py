@@ -140,16 +140,18 @@ def extract_prefs(user_msg, prefs, known_areas=None):
     return prefs
 
 
-def _build_contents(history, user_msg, candidate_context):
+def _build_contents(history, user_msg, candidate_context, relax_note=""):
     """Assemble the Gemini `contents` list from prior turns and the current message."""
     contents = []
     for turn in history:
         role = "model" if turn["role"] == "assistant" else "user"
         contents.append(types.Content(role=role, parts=[types.Part(text=turn["content"])]))
 
+    note = f"{relax_note}\n\n" if relax_note else ""
     current = (
         "CANDIDATE LIST (recommend only from these unless using web results):\n"
         f"{candidate_context}\n\n"
+        f"{note}"
         f"User message: {user_msg}"
     )
     contents.append(types.Content(role="user", parts=[types.Part(text=current)]))
@@ -181,9 +183,11 @@ def _split_picks(text):
     return reply, picks
 
 
-def get_response(client, history, user_msg, candidate_context, use_search=False):
+def get_response(client, history, user_msg, candidate_context, use_search=False, relax_note=""):
     """Send the conversation to Gemini and return a structured result dict.
 
+    `relax_note` is an optional honesty note (e.g. "no exact-area match, picks are
+    a few stops away") injected so the bot does not overstate how well picks fit.
     Returns keys: reply, picks (list of place names), sources (list of {title,uri}),
     used_search (bool), and error (None or a user-facing message).
     """
@@ -197,7 +201,7 @@ def get_response(client, history, user_msg, candidate_context, use_search=False)
     try:
         response = client.models.generate_content(
             model=MODEL_NAME,
-            contents=_build_contents(history, user_msg, candidate_context),
+            contents=_build_contents(history, user_msg, candidate_context, relax_note),
             config=types.GenerateContentConfig(**config_args),
         )
     except Exception as exc:  # noqa: BLE001 - surface any API/network error gracefully
