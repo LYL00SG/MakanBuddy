@@ -263,6 +263,21 @@ def _split_picks(text):
     return reply, picks
 
 
+def _bold_names(text):
+    """Extract bolded names from a reply, used as a fallback when no PICKS line is present.
+
+    The web-search tool makes the model format picks as **bold** with inline citations
+    instead of a PICKS line, so we recover the place names from the bold markdown.
+    """
+    names, seen = [], set()
+    for raw in re.findall(r"\*\*(.+?)\*\*", text):
+        name = raw.strip().strip(":").strip()
+        if len(name) >= 3 and name.lower() not in seen:
+            seen.add(name.lower())
+            names.append(name)
+    return names
+
+
 def get_response(client, history, user_msg, candidate_context, use_search=False, relax_note=""):
     """Send the conversation to OpenAI and return a structured result dict.
 
@@ -289,6 +304,9 @@ def get_response(client, history, user_msg, candidate_context, use_search=False,
         }
 
     reply, picks = _split_picks(text)
+    # Web search makes the model drop the PICKS line, so recover names from bold markdown.
+    if not picks and used_search:
+        picks = _bold_names(reply)
     return {
         "reply": reply,
         "picks": picks,
