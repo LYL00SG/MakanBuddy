@@ -44,10 +44,12 @@ HOW TO RECOMMEND
 must come from a source you actually found.
 - Return EXACTLY 2-3 picks (unless the user asks for just one). The number of picks must match what \
 your intro implies — do not mention more places than you put in `picks`.
-- For each pick, fill every field accurately from your source. The `area` and `mrt` MUST be the \
-REAL location of THAT specific outlet as stated in your source — never just copy the area the user \
-asked for. Many eateries are chains with many outlets: only recommend the outlet that genuinely \
-matches the user's requested location.
+- For each pick, fill every field accurately from your source. The `area` MUST be the SPECIFIC real \
+location of THAT outlet (building/mall name and street if known, plus neighbourhood), and `mrt` the \
+nearest station — never just copy the area the user asked for. Many eateries are chains with many \
+outlets: only recommend the outlet that genuinely matches the user's requested location.
+- Include the `rating` (with review count) when your source shows one, so the user can gauge \
+credibility. If there is no rating, leave it empty — never make one up.
 - If you cannot confirm a place actually exists at the user's requested mall/area, either recommend \
 the nearest real outlet you DID find (and make the real location clear in `area`), or say so in the \
 reply — do not fake the location.
@@ -194,21 +196,27 @@ RECS_SCHEMA = {
                 "properties": {
                     "name": {"type": "string"},
                     "area": {"type": "string",
-                             "description": "The REAL location/neighbourhood of THIS specific outlet "
-                                            "from your source — never just the area the user asked "
-                                            "for."},
+                             "description": "SPECIFIC real location of THIS outlet from your source "
+                                            "— building/mall name and street if known, plus "
+                                            "neighbourhood (e.g. 'NEX Mall, Serangoon Central' or "
+                                            "'30 Seng Poh Road, Tiong Bahru'). Never just the area "
+                                            "the user asked for."},
                     "mrt": {"type": "string",
                             "description": "Nearest MRT to this outlet's real location."},
                     "cuisine": {"type": "string"},
                     "type": {"type": "string",
                              "description": "hawker, food court, cafe, or restaurant."},
                     "price": {"type": "string", "description": "Rough price range, e.g. $ or ~$15."},
+                    "rating": {"type": "string",
+                               "description": "Review rating with count if your source has one, "
+                                              "e.g. '4.4 (278 reviews)'. Empty string if unknown — "
+                                              "never invent a rating."},
                     "why": {"type": "string",
                             "description": "One short, vivid reason. No opening hours or open/closed "
                                            "status."},
                     "source_url": {"type": "string", "description": "URL of the source you used."},
                 },
-                "required": ["name", "area", "mrt", "cuisine", "type", "price", "why",
+                "required": ["name", "area", "mrt", "cuisine", "type", "price", "rating", "why",
                              "source_url"],
             },
         },

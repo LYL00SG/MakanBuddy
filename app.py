@@ -113,6 +113,8 @@ def render_card(card):
             st.markdown(f"**{p.get('name', 'Unknown')}** &nbsp; 🌐 *Live web result*")
             if meta:
                 st.caption(meta)
+            if p.get("rating"):
+                st.write(f"⭐ {p['rating']}")
             if p.get("why"):
                 st.write(f"🍽️ {p['why']}")
             links = [f"[📍 Maps]({recommender.maps_link({'name': p.get('name', ''), 'area': p.get('area', '')})})"]
