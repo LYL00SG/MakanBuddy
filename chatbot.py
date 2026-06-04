@@ -26,7 +26,8 @@ WEB_SEARCH_TOOLS = ["web_search", "web_search_preview"]
 # --- The designed system prompt (named constant, per the capstone spec) ---------
 SYSTEM_PROMPT = """You are "Makan Buddy", a warm, friendly Singaporean food guide who helps people \
 decide where to eat across Singapore. You recommend specific, real food PLACES — hawker centres, \
-food courts, cafes, and restaurants of all cuisines.
+food courts, cafes, restaurants, and street-food spots / food streets (e.g. Haji Lane, Joo Chiat \
+Road, a satay street) of all cuisines.
 
 PERSONALITY & TONE
 - Speak like a friendly local makan kaki. Use light, natural Singlish sprinkles (lah, can, shiok, \
@@ -107,7 +108,7 @@ def _friendly_error(exc):
     if any(k in low for k in ("deadline", "timeout", "timed out", "unavailable", "503",
                               "connection", "network", "getaddrinfo", "failed to establish")):
         return (
-            "Aiyah, cannot reach Gemini right now — looks like a network or service hiccup. "
+            "Aiyah, cannot reach OpenAI right now — looks like a network or service hiccup. "
             "Please check your connection and try again in a moment."
         )
 
@@ -147,6 +148,8 @@ def extract_prefs(user_msg, prefs, known_areas=None):
         prefs["venue_type"] = "hawker"
     elif "food court" in msg or "foodcourt" in msg:
         prefs["venue_type"] = "food_court"
+    elif "street food" in msg or "food street" in msg or "street-food" in msg:
+        prefs["venue_type"] = "street"
     elif "cafe" in msg or "café" in msg or "brunch" in msg:
         prefs["venue_type"] = "cafe"
     elif "restaurant" in msg or "sit down" in msg or "sit-down" in msg:
@@ -205,7 +208,8 @@ RECS_SCHEMA = {
                             "description": "Nearest MRT to this outlet's real location."},
                     "cuisine": {"type": "string"},
                     "type": {"type": "string",
-                             "description": "hawker, food court, cafe, or restaurant."},
+                             "description": "One of: hawker, food court, cafe, restaurant, or "
+                                            "street (a street-food cluster / food street)."},
                     "price": {"type": "string", "description": "Rough price range, e.g. $ or ~$15."},
                     "rating": {"type": "string",
                                "description": "Review rating with count if your source has one, "

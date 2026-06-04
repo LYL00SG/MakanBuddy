@@ -17,7 +17,7 @@ DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "places.json")
 
 # Venue types and dietary keys we support, kept here so the UI and filter logic
 # stay in sync.
-VENUE_TYPES = ["hawker", "food_court", "cafe", "restaurant"]
+VENUE_TYPES = ["hawker", "food_court", "cafe", "restaurant", "street"]
 DIETARY_KEYS = ["halal", "vegetarian_options", "no_pork_no_lard"]
 
 

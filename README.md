@@ -3,7 +3,7 @@
 ## 1. Project Title and Description
 
 **Makan Buddy** is a conversational AI chatbot that recommends where to eat in Singapore —
-hawker centres, food courts, cafes, and restaurants across many cuisines. It asks about your
+hawker centres, food courts, cafes, restaurants, and street-food spots across many cuisines. It asks about your
 craving, your location (area/MRT), and any dietary needs, then uses **live web search** to suggest
 real, up-to-date places (including recently opened spots), remembers what it has recommended, and
 shows each pick as a structured card — specific address, cuisine, price, review rating, a one-line
@@ -26,7 +26,7 @@ offline fallback if search is unavailable.
   built-in **web-search tool** plus **structured (JSON-schema) outputs** for the recommendation cards
 - **UI:** Streamlit (chat interface with sidebar filters and rich cards)
 - **Config:** python-dotenv (loads the API key from a `.env` file)
-- **Data:** a hand-curated local `data/places.json` of ~320 real, well-known Singapore food
+- **Data:** a hand-curated local `data/places.json` of ~340 real, well-known Singapore food
   places, used as an offline fallback when web search is unavailable
 
 ## 4. Setup Instructions
@@ -93,7 +93,7 @@ everything recommended.
   Each card includes a source link so you can verify.
 - **Requires connectivity and API credit.** Every recommendation makes an OpenAI web-search call,
   so it needs internet and uses your API quota. If search is unavailable, the bot falls back to the
-  offline local guide (~320 hand-curated real places), which is smaller and not live-updated.
+  offline local guide (~340 hand-curated real places), which is smaller and not live-updated.
 - **Preference detection is keyword-based.** Location, cuisine, and dietary needs are parsed with
   simple keywords, so unusual phrasing may be missed (the sidebar toggles let you set them manually).
 
@@ -111,7 +111,7 @@ app.py            # Streamlit UI: chat loop, cards, sidebar, surprise, summary
 chatbot.py        # SYSTEM_PROMPT, OpenAI client, web search + structured recommendations
 recommender.py    # Offline fallback dataset: load / filter, surprise pick, Maps links
 memory_store.py   # Persist preferences + past recommendations across runs
-data/places.json  # Hand-curated ~320-place real dataset (offline fallback)
+data/places.json  # Hand-curated ~340-place real dataset (offline fallback)
 .env.example      # Template for your OPENAI_API_KEY
 requirements.txt  # Python dependencies
 ```
