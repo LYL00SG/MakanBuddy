@@ -1,6 +1,6 @@
 """Makan Buddy - a Singapore food recommendation chatbot (Streamlit UI).
 
-Ties together the dataset (recommender), the Gemini conversation logic (chatbot),
+Ties together the dataset (recommender), the OpenAI conversation logic (chatbot),
 and cross-run memory (memory_store) into a chat interface with rich place cards,
 sidebar filters, a "surprise me" pick, and a session summary.
 """
@@ -48,7 +48,7 @@ def get_known_areas():
 
 @st.cache_resource
 def get_client():
-    """Create the Gemini client once; returns (client, error_message)."""
+    """Create the OpenAI client once; returns (client, error_message)."""
     try:
         return chatbot.init_client(), None
     except Exception as exc:  # noqa: BLE001
@@ -267,8 +267,7 @@ def do_surprise():
              "cards": []}
         )
         return
-    st.session_state.past_recommendations.append(pick["name"])
-    memory_store.save_memory(st.session_state.prefs, st.session_state.past_recommendations)
+    remember([pick["name"]])
     st.session_state.messages.append(
         {"role": "assistant",
          "content": f"🎲 Surprise pick — go try **{pick['name']}**! {pick['signature_dish']}, shiok one.",
@@ -297,12 +296,12 @@ def do_reset():
 
 # --- App body -------------------------------------------------------------------
 st.title("🍜 Makan Buddy")
-st.caption("Your friendly Singapore food guide — hawker, food court, cafe, or restaurant.")
+st.caption("Your friendly Singapore food guide — hawker, food court, cafe, restaurant, or street food.")
 
 client, client_error = get_client()
 if client_error:
     st.error(
-        f"⚠️ {client_error}\n\nThe app loaded, but recommendations need a working Gemini API key. "
+        f"⚠️ {client_error}\n\nThe app loaded, but recommendations need a working OpenAI API key. "
         "Copy `.env.example` to `.env`, add your key, and restart."
     )
     st.stop()

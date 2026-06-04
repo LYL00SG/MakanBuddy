@@ -21,8 +21,6 @@ MODEL_NAME = "gpt-4o-mini"
 # Built-in web-search tool name(s) to try, in order, for the "newer places" feature.
 WEB_SEARCH_TOOLS = ["web_search", "web_search_preview"]
 
-# Delimiter the model uses to list the exact place names it recommended this turn,
-# on a final "PICKS:" line that the app parses out of the visible reply.
 # --- The designed system prompt (named constant, per the capstone spec) ---------
 SYSTEM_PROMPT = """You are "Makan Buddy", a warm, friendly Singaporean food guide who helps people \
 decide where to eat across Singapore. You recommend specific, real food PLACES — hawker centres, \

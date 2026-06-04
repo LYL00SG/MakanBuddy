@@ -1,9 +1,9 @@
-"""Loads and filters the curated Singapore food-places dataset.
+"""Loads and filters the curated Singapore food-places dataset (offline fallback).
 
-This module is the data layer for Makan Buddy: it reads the local JSON of real
-food places, narrows them down by the user's preferences, formats the shortlist
-as grounding context for Gemini, and provides helper utilities (a random
-"surprise" pick and a Google Maps link builder).
+This module is the offline data layer for Makan Buddy: it reads the local JSON of
+real food places and narrows them down by the user's preferences for the dataset
+fallback and the "Surprise me" pick, plus a Google Maps link builder. The app's
+primary recommendations come from live web search (see chatbot.py).
 """
 
 import json
@@ -85,27 +85,6 @@ def build_candidates(places, prefs, exclude_names=None):
     return [], [k for k in ("budget", "venue_type", "area") if prefs.get(k)]
 
 
-def format_for_prompt(places, limit=25):
-    """Render a (filtered) place list as a compact text block for the model prompt."""
-    if not places:
-        return "(No places in the dataset match the current preferences.)"
-    lines = []
-    for p in places[:limit]:
-        diet = []
-        if p.get("halal"):
-            diet.append("halal")
-        if p.get("vegetarian_options"):
-            diet.append("vegetarian options")
-        if p.get("no_pork_no_lard"):
-            diet.append("no pork/lard")
-        diet_str = f" [{', '.join(diet)}]" if diet else ""
-        lines.append(
-            f"- {p['name']} | {p['type']} | {p['cuisine']} | {p['area']} "
-            f"(MRT: {p['mrt']}) | {p['price']} | {p['signature_dish']}{diet_str}"
-        )
-    return "\n".join(lines)
-
-
 def surprise_pick(places, prefs, exclude_names=None):
     """Return one random place for the current preferences, relaxing soft constraints.
 
@@ -123,16 +102,3 @@ def maps_link(place):
     """Build a Google Maps search URL for a place using its name and area."""
     query = quote_plus(f"{place['name']} {place.get('area', '')} Singapore")
     return f"https://www.google.com/maps/search/?api=1&query={query}"
-
-
-def find_by_name(places, name):
-    """Return the dataset record whose name best matches `name`, or None."""
-    name_l = name.lower().strip()
-    for place in places:
-        if place["name"].lower() == name_l:
-            return place
-    # Fall back to a loose contains-match so minor wording differences still resolve.
-    for place in places:
-        if name_l in place["name"].lower() or place["name"].lower() in name_l:
-            return place
-    return None
