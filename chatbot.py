@@ -347,25 +347,3 @@ def get_response(client, history, user_msg, constraints_note=""):
         "used_search": used_search,
         "error": None,
     }
-
-
-def session_summary(client, history, past_recs, prefs):
-    """Generate a short end-of-session recap of recommendations and detected preferences."""
-    pref_bits = [f"{k}: {v}" for k, v in prefs.items() if v]
-    summary_request = (
-        "Write a short, friendly session summary for the user. List the places you recommended "
-        f"this session: {', '.join(past_recs) if past_recs else 'none yet'}. "
-        f"Detected preferences: {', '.join(pref_bits) if pref_bits else 'none noted'}. "
-        "End with one cheerful line inviting them back."
-    )
-    try:
-        response = client.responses.create(
-            model=MODEL_NAME,
-            instructions=SYSTEM_PROMPT,
-            input=[{"role": "user", "content": summary_request}],
-            temperature=0.6,
-        )
-        text = (getattr(response, "output_text", None) or "").strip()
-        return text if text else "No summary available right now."
-    except Exception as exc:  # noqa: BLE001
-        return _friendly_error(exc)

@@ -5,6 +5,7 @@ and cross-run memory (memory_store) into a chat interface with rich place cards,
 sidebar filters, a "surprise me" pick, and a session summary.
 """
 
+import re
 from urllib.parse import urlparse
 
 import streamlit as st
@@ -106,6 +107,8 @@ def init_state():
     st.session_state.prefs = saved["preferences"]
     st.session_state.past_recommendations = saved["past_recommendations"]
     st.session_state.messages = []
+    # Structured details of places recommended this session (for the summary recap).
+    st.session_state.rec_details = []
 
     past = st.session_state.past_recommendations
     if past:
@@ -182,10 +185,24 @@ def render_message(msg):
                     st.markdown(f"- [{s['title']}]({s['uri']})")
 
 
-def remember(names):
-    """Add newly recommended place names to memory (no repeats) and persist."""
-    for name in names:
-        if name and name not in st.session_state.past_recommendations:
+def record_recs(picks):
+    """Record recommended places: names (persisted, for memory) + details (for the summary).
+
+    `picks` is a list of place dicts — web picks or dataset records — each with at
+    least a name, plus optional area/cuisine/rating used by the session recap.
+    """
+    for p in picks:
+        name = p.get("name")
+        if not name:
+            continue
+        if not any(d["name"] == name for d in st.session_state.rec_details):
+            st.session_state.rec_details.append({
+                "name": name,
+                "area": p.get("area", ""),
+                "cuisine": p.get("cuisine", ""),
+                "rating": p.get("rating", ""),
+            })
+        if name not in st.session_state.past_recommendations:
             st.session_state.past_recommendations.append(name)
     memory_store.save_memory(st.session_state.prefs, st.session_state.past_recommendations)
 
@@ -247,7 +264,7 @@ def offline_recommend(prefs, intro):
     picks = candidates[:3]
     if not picks:
         return False
-    remember([p["name"] for p in picks])
+    record_recs(picks)
     st.session_state.messages.append({
         "role": "assistant", "content": intro,
         "cards": [{"kind": "verified", "place": p} for p in picks],
@@ -297,7 +314,7 @@ def handle_turn(user_msg):
         )
         return
 
-    remember([p.get("name") for p in result["picks"]])
+    record_recs(result["picks"])
     st.session_state.messages.append({
         "role": "assistant", "content": result["reply"],
         "cards": [{"kind": "web", "pick": p} for p in result["picks"]],
@@ -316,7 +333,7 @@ def do_surprise():
              "cards": []}
         )
         return
-    remember([pick["name"]])
+    record_recs([pick])
     st.session_state.messages.append(
         {"role": "assistant",
          "content": f"🎲 Surprise pick — go try **{pick['name']}**! {pick['signature_dish']}, shiok one.",
@@ -324,16 +341,60 @@ def do_surprise():
     )
 
 
+def _rating_value(rating):
+    """Pull the leading numeric rating from a string like '4.4 (278 reviews)', or None."""
+    match = re.search(r"[0-9]+(?:\.[0-9]+)?", rating or "")
+    return float(match.group()) if match else None
+
+
+def build_summary():
+    """Build a grouped, detailed session recap from stored recommendation details."""
+    details = st.session_state.rec_details
+    if not details:
+        return ("We haven't looked at any places yet this session — ask me for a makan spot "
+                "first, then I'll recap them here! 🍜")
+    prefs = st.session_state.prefs
+    lines = ["**Here's your makan recap for this session** 🍜"]
+
+    # Lead with what the user was looking for.
+    wants = []
+    if prefs.get("area"):
+        wants.append(f"around **{prefs['area']}**")
+    if prefs.get("cuisine"):
+        wants.append(f"**{prefs['cuisine']}** food")
+    diet = [d for d, k in (("halal", "halal"), ("vegetarian", "vegetarian_options"),
+                           ("no pork", "no_pork_no_lard")) if prefs.get(k)]
+    if diet:
+        wants.append(" + ".join(diet))
+    if wants:
+        lines.append("You were looking for " + " · ".join(wants) + ".")
+
+    # Group the places by cuisine.
+    groups = {}
+    for d in details:
+        groups.setdefault(d["cuisine"] or "Other", []).append(d)
+    for cuisine, items in groups.items():
+        lines.append(f"\n**{cuisine}**")
+        for d in items:
+            meta = [m for m in (d["area"], f"⭐ {d['rating']}" if d["rating"] else "") if m]
+            lines.append(f"- {d['name']}" + (f" — {' · '.join(meta)}" if meta else ""))
+
+    # Highlight the top-rated place, if any have ratings.
+    rated = [(d, _rating_value(d["rating"])) for d in details]
+    rated = [(d, v) for d, v in rated if v is not None]
+    if rated:
+        top = max(rated, key=lambda t: t[1])[0]
+        lines.append(f"\n⭐ **Top-rated:** {top['name']} ({top['rating']})")
+
+    lines.append(f"\nThat's **{len(details)}** place(s) this session. Come back anytime, lah! 😊")
+    return "\n".join(lines)
+
+
 def do_summary():
-    """Generate and append an end-of-session summary."""
-    with st.spinner("Wrapping up your makan session..."):
-        text = chatbot.session_summary(
-            get_client()[0],
-            st.session_state.messages,
-            st.session_state.past_recommendations,
-            st.session_state.prefs,
-        )
-    st.session_state.messages.append({"role": "assistant", "content": text, "cards": []})
+    """Append a deterministic, grouped end-of-session recap (no API call)."""
+    st.session_state.messages.append(
+        {"role": "assistant", "content": build_summary(), "cards": []}
+    )
 
 
 def do_clear_prefs():
@@ -346,7 +407,7 @@ def do_clear_prefs():
 def do_reset():
     """Clear saved memory and reset the session to a fresh start."""
     memory_store.clear_memory()
-    for key in ("_initialised", "prefs", "past_recommendations", "messages"):
+    for key in ("_initialised", "prefs", "past_recommendations", "messages", "rec_details"):
         st.session_state.pop(key, None)
 
 
