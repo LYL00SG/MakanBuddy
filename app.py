@@ -63,14 +63,14 @@ def valid_source_url(url):
     return host not in PLACEHOLDER_HOSTS
 
 
-def link_row(maps_url, source_url=None):
+def link_row(maps_url, source_url=None, maps_label="📍 Maps"):
     """Render Maps (and optional Source) as links that open in a new tab.
 
     The source link is shown only when the URL is real (placeholder/invalid URLs
     like example.com are dropped), with its domain (e.g. "burpple.com") so the
     user knows what they're trusting before clicking.
     """
-    links = [f'<a href="{maps_url}" target="_blank">📍 Maps</a>']
+    links = [f'<a href="{maps_url}" target="_blank">{maps_label}</a>']
     if valid_source_url(source_url):
         domain = urlparse(source_url).netloc.replace("www.", "")
         links.append(f'<a href="{source_url}" target="_blank">🔗 {domain}</a>')
@@ -166,10 +166,12 @@ def render_card(card):
                 extras.append(f"🟢 {p['dietary']}")
             if extras:
                 st.write("  ".join(extras))
+            if p.get("hours"):
+                st.write(f"🕒 {p['hours']}  ·  _hours as listed — verify before going_")
             if p.get("why"):
                 st.write(f"🍽️ {p['why']}")
             maps = recommender.maps_link({"name": p.get("name", ""), "area": p.get("area", "")})
-            link_row(maps, p.get("source_url"))
+            link_row(maps, p.get("source_url"), maps_label="📍 Maps · live busy times")
 
 
 def render_message(msg):

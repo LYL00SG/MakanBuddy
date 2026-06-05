@@ -58,8 +58,11 @@ reply — do not fake the location.
 places that genuinely satisfy it, and set the `dietary` field to confirm it from your source. If \
 you cannot confirm a place meets the dietary need, do NOT present it as meeting it — leave `dietary` \
 empty or pick a place you can confirm.
-- The `why` is one short, vivid reason (signature dish, vibe, or why it fits). Do not put opening \
-hours or "Closed/Open" status in any field.
+- The `why` is one short, vivid reason (signature dish, vibe, or why it fits) — keep opening hours \
+out of `why`.
+- Fill `hours` with the opening hours your source states (e.g. "11am-9pm daily"). Do NOT claim a \
+real-time "open now/closed" status, and leave `hours` empty if the source doesn't give them — never \
+invent hours.
 - `source_url` MUST be the real URL of an actual web page you found via search that supports this \
 pick. NEVER use a placeholder like example.com or a made-up URL. If you do not have a real source \
 URL for a pick, leave it empty rather than inventing one.
@@ -228,9 +231,14 @@ RECS_SCHEMA = {
                                                "'Vegetarian-friendly', 'No pork'. Empty string if "
                                                "you cannot confirm — NEVER claim halal/vegetarian "
                                                "unless your source supports it."},
+                    "hours": {"type": "string",
+                              "description": "Opening hours as stated by your source, e.g. "
+                                             "'11am-9pm daily' or 'Mon-Fri 8am-6pm'. Do NOT claim a "
+                                             "real-time open/closed status. Empty string if the "
+                                             "source doesn't state hours — never invent hours."},
                     "why": {"type": "string",
-                            "description": "One short, vivid reason. No opening hours or open/closed "
-                                           "status."},
+                            "description": "One short, vivid reason. Keep opening hours out of this "
+                                           "field."},
                     "source_url": {"type": "string",
                                    "description": "Real URL of an actual web page from your search "
                                                   "that supports this pick (https://...). Never a "
@@ -238,7 +246,7 @@ RECS_SCHEMA = {
                                                   "empty string if you have no real source."},
                 },
                 "required": ["name", "area", "mrt", "cuisine", "type", "price", "rating", "dietary",
-                             "why", "source_url"],
+                             "hours", "why", "source_url"],
             },
         },
     },

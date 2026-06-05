@@ -56,7 +56,10 @@ offline fallback if search is unavailable.
 ## 5. Usage Examples
 
 The reply is always a short one-line intro; the recommendations themselves are 3+ structured
-🌐 cards (at least 3 when enough suitable options exist) (name, specific address, cuisine·type·price, ⭐ rating, a 🟢 dietary confirmation when you
+🌐 cards (at least 3 when enough suitable options exist; each with name, specific address,
+cuisine·type·price, ⭐ rating, 🟢 dietary confirmation, 🕒 opening hours, a one-line "why", and
+Maps + Source links). The Maps link goes to the place's Google Maps page, where you can see live
+"Popular times" / busyness. (name, specific address, cuisine·type·price, ⭐ rating, a 🟢 dietary confirmation when you
 asked for one, a one-line "why", and Maps + Source links that open in a new tab). After each set of
 results, **quick-refine buttons** (🔄 More options · 💲 Cheaper · ✨ Fancier) let you iterate
 without typing.
@@ -95,7 +98,8 @@ area/cuisine, or **🧹 Reset memory** to wipe everything.
 
 - **Web results are not guaranteed accurate.** Recommendations come from a live web search, so a
   place may occasionally be outdated (e.g. since closed), mis-categorised, or missing details.
-  Each card includes a source link so you can verify.
+  Each card includes a source link so you can verify. The 🕒 opening hours are "as listed" by the
+  source and may be stale — verify before heading down.
 - **Requires connectivity and API credit.** Every recommendation makes an OpenAI web-search call,
   so it needs internet and uses your API quota. If search is unavailable, the bot falls back to the
   offline local guide (~340 hand-curated real places), which is smaller and not live-updated.
@@ -104,7 +108,8 @@ area/cuisine, or **🧹 Reset memory** to wipe everything.
 
 ## 7. Future Improvements
 
-- Add real-time opening hours and live crowd/queue estimates per place.
+- Integrate the Google Places API for accurate, verified opening hours and a true "Open now" flag
+  (live crowd/busyness isn't available via any official API — the Maps link is used for that today).
 - Expand the dataset and let users contribute their own favourite stalls, with a richer
   map-based view of recommendations.
 
