@@ -56,13 +56,11 @@ offline fallback if search is unavailable.
 ## 5. Usage Examples
 
 The reply is always a short one-line intro; the recommendations themselves are 3+ structured
-🌐 cards (at least 3 when enough suitable options exist; each with name, specific address,
+🌐 cards (at least 3 when enough suitable options exist), each with name, specific address,
 cuisine·type·price, ⭐ rating, 🟢 dietary confirmation, 🕒 opening hours, a one-line "why", and
-Maps + Source links). The Maps link goes to the place's Google Maps page, where you can see live
-"Popular times" / busyness. (name, specific address, cuisine·type·price, ⭐ rating, a 🟢 dietary confirmation when you
-asked for one, a one-line "why", and Maps + Source links that open in a new tab). After each set of
-results, **quick-refine buttons** (🔄 More options · 💲 Cheaper · ✨ Fancier) let you iterate
-without typing.
+Maps + Source links that open in a new tab. The Maps link goes to the place's Google Maps page,
+where you can see live "Popular times" / busyness. After each set of results, **quick-refine
+buttons** (🔄 More options · 💲 Cheaper · ✨ Fancier) let you iterate without typing.
 
 **Example 1 — specific craving at a mall**
 ```
@@ -71,9 +69,10 @@ Bot:  Craving Japanese food at NEX Mall? Here are some options you might enjoy:
 
       ┌ TORI-Q  🌐 Live web result ──────────────────────────────┐
       │ Restaurant · Japanese · NEX Mall, 23 Serangoon Central · MRT: Serangoon · ~$10
-      │ ⭐ 4.3 (932 reviews)
+      │ ⭐ 4.3 (932 reviews)   🟢 No pork
+      │ 🕒 11am–10pm daily — hours as listed, verify before going
       │ 🍽️ Authentic yakitori with a special 'tare' sauce.
-      │ 📍 Maps · 🔗 Source
+      │ 📍 Maps · live busy times   🔗 sethlui.com
       └──────────────────────────────────────────────────────────┘
       (plus 2 more cards: Pepper Lunch NEX, &JOY Japanese Food Street NEX)
 ```
