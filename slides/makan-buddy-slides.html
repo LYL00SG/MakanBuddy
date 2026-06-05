@@ -44,8 +44,8 @@
     justify-content:space-between;align-items:center;font-size:14px;color:var(--muted);
     border-top:1px solid var(--line);padding-top:14px}
   .pageno{font-variant-numeric:tabular-nums}
-  ul{list-style:none;display:flex;flex-direction:column;gap:14px;margin-top:6px}
-  li{position:relative;padding-left:34px;font-size:21px;line-height:1.4;max-width:60ch}
+  ul{list-style:none;display:flex;flex-direction:column;gap:20px;margin-top:10px}
+  li{position:relative;padding-left:34px;font-size:23px;line-height:1.45;max-width:58ch}
   li::before{content:"";position:absolute;left:0;top:9px;width:13px;height:13px;border-radius:3px;
     background:var(--amber)}
   li b{color:var(--ink)}
@@ -97,8 +97,8 @@
     box-shadow:var(--shadow);border-top:5px solid var(--chilli)}
   .learn .box:nth-child(2){border-top-color:var(--amber)}
   .learn .box:nth-child(3){border-top-color:var(--teal)}
-  .learn h3{font-size:16px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
-  .learn p{font-size:17px;line-height:1.5;color:var(--ink)}
+  .learn h3{font-size:16px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+  .learn p{font-size:18px;line-height:1.55;color:var(--ink)}
   .learn p b{color:var(--chilli)}
   /* nav hint */
   .hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);color:#cfd4dc;
@@ -142,20 +142,18 @@
     <div class="accent-bar"></div>
     <div class="eyebrow">The Problem</div>
     <h2>“Where should I eat?”</h2>
+    <p class="lede" style="margin:-4px 0 14px">For anyone in Singapore who's hungry and can't decide.</p>
     <div class="grid">
       <ul>
-        <li>Singapore has <b>thousands</b> of hawker stalls, food courts, cafes, restaurants and
-          street-food spots — and the scene <b>changes constantly</b> (places open and close).</li>
-        <li>The best pick depends on your <b>location</b> (area/MRT), your <b>craving</b>, and your
-          <b>dietary needs</b> — halal, vegetarian, no pork.</li>
-        <li>Generic search and maps <b>overwhelm</b>; you just want a short, trustworthy shortlist.</li>
-        <li><b>Who it's for:</b> anyone in Singapore who's hungry and can't decide where to makan.</li>
+        <li><b>Too many options</b> — hawker, cafe, restaurant, street food — and the scene
+          changes weekly.</li>
+        <li><b>The right pick is personal</b> — location, craving, dietary (halal · veg · no pork).</li>
+        <li><b>Search &amp; maps overwhelm</b> — you just want one trustworthy shortlist.</li>
       </ul>
       <div class="callout">
-        <h3>Why AI is the right tool</h3>
-        <p>A conversation handles <b>vague requests</b>, asks one smart follow-up, remembers context,
-          and <b>synthesises live web results</b> into a concise, sourced shortlist — something a
-          static list or keyword search can't do.</p>
+        <h3>Why AI</h3>
+        <p>Conversation handles vague asks, remembers context, and turns <b>live web results</b>
+          into a short, sourced shortlist — a list or keyword search can't.</p>
       </div>
     </div>
     <div class="footer"><span>Makan Buddy</span><span class="pageno">2 / 5</span></div>
@@ -169,18 +167,17 @@
     <div class="flow">
       <div class="node"><div class="k">1 · Input</div><div class="v">“spicy halal noodles near Bugis”</div></div>
       <div class="arrow">→</div>
-      <div class="node"><div class="k">2 · Parse</div><div class="v">Detect area, cuisine, dietary, budget</div></div>
+      <div class="node"><div class="k">2 · Parse</div><div class="v">area · cuisine · dietary</div></div>
       <div class="arrow">→</div>
-      <div class="node"><div class="k">3 · OpenAI</div><div class="v">gpt-4o-mini · web_search tool · structured JSON</div></div>
+      <div class="node"><div class="k">3 · OpenAI</div><div class="v">gpt-4o-mini · web search · JSON</div></div>
       <div class="arrow">→</div>
-      <div class="node"><div class="k">4 · Cards</div><div class="v">3+ picks: address, ⭐rating, dietary, 🕒hours, source</div></div>
+      <div class="node"><div class="k">4 · Cards</div><div class="v">3+ picks with real sources</div></div>
     </div>
     <div class="stack">
-      <span class="pill">🧠 Named <small>SYSTEM_PROMPT</small></span>
-      <span class="pill">💾 Memory <small>prefs + no repeats</small></span>
-      <span class="pill">📒 Offline fallback <small>342 real places</small></span>
-      <span class="pill">✅ Honest data <small>validated URLs · no fake ratings</small></span>
-      <span class="pill">⚠️ Graceful errors <small>quota / network</small></span>
+      <span class="pill">🧠 Named system prompt</span>
+      <span class="pill">💾 Remembers you <small>· no repeats</small></span>
+      <span class="pill">✅ Honest data <small>· validated sources</small></span>
+      <span class="pill">📒 Offline fallback <small>· 342 places</small></span>
     </div>
     <div class="footer"><span>Python · Streamlit · OpenAI Responses API · python-dotenv</span><span class="pageno">3 / 5</span></div>
   </section>
@@ -213,8 +210,7 @@
         </div>
       </div>
     </div>
-    <p class="demo-note">Also shown: quick-refine buttons, dietary confirmation, opening hours,
-      and the offline guide as a safety net.</p>
+    <p class="demo-note">Also: quick-refine buttons · dietary confirmation · offline safety net.</p>
     <div class="footer"><span>Switch to the app — http://localhost:8501</span><span class="pageno">4 / 5</span></div>
   </section>
 
@@ -226,19 +222,17 @@
     <div class="learn">
       <div class="box">
         <h3>Harder than expected</h3>
-        <p>The model happily <b>fabricated</b> source links, ratings, even halal tags. Fixed it with
-          a <b>structured-output schema</b>, prompt rules (“leave empty if you can't confirm”), and
-          <b>code-side validation</b> that drops fake URLs.</p>
+        <p>The model <b>fabricated</b> sources, ratings, even halal tags. Fixed with a
+          <b>structured schema</b>, strict prompt rules, and <b>code that drops fake URLs</b>.</p>
       </div>
       <div class="box">
         <h3>Do differently</h3>
-        <p>Start <b>web-search-first</b> from day one. I began dataset-first and had to re-architect
-          mid-project to deliver live, current results.</p>
+        <p>Go <b>web-first from day one</b> — I started dataset-first and had to re-architect
+          mid-project.</p>
       </div>
       <div class="box">
         <h3>What's next</h3>
-        <p>Integrate the <b>Google Places API</b> for verified hours, a true “Open now” flag, and
-          real photos of each place.</p>
+        <p><b>Google Places API</b> for verified hours, a true “Open now”, and real photos.</p>
       </div>
     </div>
     <div class="footer"><span>Makan Buddy · github.com/LYL00SG/MakanBuddy</span><span class="pageno">5 / 5</span></div>
