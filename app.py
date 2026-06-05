@@ -19,6 +19,9 @@ st.set_page_config(page_title="Makan Buddy", page_icon="🍜", layout="centered"
 
 MAX_HISTORY_TURNS = 12  # how many prior messages to send to the model for context
 
+# Asked when the user gives no location — keep "which area or mrt" so we don't re-ask in a loop.
+LOCATION_QUESTION = "I'd love to help you find good makan! 🍜 Which area or MRT are you near?"
+
 # Budget tiers. Values stay as "$"/"$$"/"$$$" for filtering; labels are escaped so
 # Streamlit does not treat the dollar signs as LaTeX math delimiters.
 BUDGET_OPTIONS = ["Any", "$", "$$", "$$$"]
@@ -285,6 +288,19 @@ def handle_turn(user_msg):
     st.session_state.messages.append({"role": "user", "content": user_msg, "cards": []})
 
     prefs = current_prefs(user_msg)
+
+    # A location is needed for useful local recommendations. If none is known, ask for it
+    # once (no API call). We don't ask twice in a row, so an area our parser can't detect
+    # (e.g. "Sentosa") still gets passed to the model on the user's next reply.
+    prev = st.session_state.messages[-2] if len(st.session_state.messages) >= 2 else None
+    asked_before = bool(prev and prev["role"] == "assistant"
+                        and "which area or mrt" in prev["content"].lower())
+    if not prefs.get("area") and not asked_before:
+        st.session_state.messages.append(
+            {"role": "assistant", "content": LOCATION_QUESTION, "cards": []}
+        )
+        return
+
     history = [
         {"role": m["role"], "content": m["content"]}
         for m in st.session_state.messages[:-1]
