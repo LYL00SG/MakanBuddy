@@ -185,11 +185,12 @@ def render_message(msg):
                     st.markdown(f"- [{s['title']}]({s['uri']})")
 
 
-def record_recs(picks):
+def record_recs(picks, source="web"):
     """Record recommended places: names (persisted, for memory) + details (for the summary).
 
     `picks` is a list of place dicts — web picks or dataset records — each with at
-    least a name, plus optional area/cuisine/rating used by the session recap.
+    least a name, plus optional area/cuisine/rating. `source` ("web" or "guide")
+    is stored so the recap can explain why local-guide picks have no rating.
     """
     for p in picks:
         name = p.get("name")
@@ -201,6 +202,7 @@ def record_recs(picks):
                 "area": p.get("area", ""),
                 "cuisine": p.get("cuisine", ""),
                 "rating": p.get("rating", ""),
+                "source": source,
             })
         if name not in st.session_state.past_recommendations:
             st.session_state.past_recommendations.append(name)
@@ -264,7 +266,7 @@ def offline_recommend(prefs, intro):
     picks = candidates[:3]
     if not picks:
         return False
-    record_recs(picks)
+    record_recs(picks, source="guide")
     st.session_state.messages.append({
         "role": "assistant", "content": intro,
         "cards": [{"kind": "verified", "place": p} for p in picks],
@@ -333,7 +335,7 @@ def do_surprise():
              "cards": []}
         )
         return
-    record_recs([pick])
+    record_recs([pick], source="guide")
     st.session_state.messages.append(
         {"role": "assistant",
          "content": f"🎲 Surprise pick — go try **{pick['name']}**! {pick['signature_dish']}, shiok one.",
@@ -376,7 +378,13 @@ def build_summary():
     for cuisine, items in groups.items():
         lines.append(f"\n**{cuisine}**")
         for d in items:
-            meta = [m for m in (d["area"], f"⭐ {d['rating']}" if d["rating"] else "") if m]
+            if d.get("rating"):
+                tag = f"⭐ {d['rating']}"
+            elif d.get("source") == "guide":
+                tag = "📒 local guide"
+            else:
+                tag = ""
+            meta = [m for m in (d["area"], tag) if m]
             lines.append(f"- {d['name']}" + (f" — {' · '.join(meta)}" if meta else ""))
 
     # Highlight the top-rated place, if any have ratings.
