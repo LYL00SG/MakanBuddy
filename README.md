@@ -107,8 +107,9 @@ area/cuisine, or **🧹 Reset memory** to wipe everything.
 
 ## 7. Future Improvements
 
-- Integrate the Google Places API for accurate, verified opening hours and a true "Open now" flag
-  (live crowd/busyness isn't available via any official API — the Maps link is used for that today).
+- Integrate the Google Places API for accurate verified opening hours, a true "Open now" flag, and
+  a **real photo** of each place (live crowd/busyness isn't in any official API — the Maps link is
+  used for both photos and busyness today, since those are real on Google Maps).
 - Expand the dataset and let users contribute their own favourite stalls, with a richer
   map-based view of recommendations.
 
