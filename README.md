@@ -33,8 +33,8 @@ offline fallback if search is unavailable.
 
 1. **Clone the repository.**
    ```bash
-   git clone <your-repo-url>
-   cd Capstone
+   git clone https://github.com/LYL00SG/MakanBuddy.git
+   cd MakanBuddy
    ```
 2. **Install dependencies.**
    ```bash
