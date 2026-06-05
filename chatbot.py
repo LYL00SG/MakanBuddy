@@ -135,6 +135,32 @@ def init_client():
     return OpenAI(api_key=api_key)
 
 
+# Common malls / landmarks users name instead of a neighbourhood, mapped to an area
+# that exists in the dataset (so the offline guide can still filter by location).
+MALL_TO_AREA = {
+    "nex": "Serangoon", "junction 8": "Bishan", "amk hub": "Ang Mo Kio",
+    "compass one": "Sengkang", "waterway point": "Punggol", "hougang mall": "Hougang",
+    "heartland mall": "Kovan", "vivocity": "HarbourFront", "vivo city": "HarbourFront",
+    "jem": "Jurong East", "westgate": "Jurong East", "imm": "Jurong East",
+    "jurong point": "Boon Lay", "clementi mall": "Clementi", "lot one": "Choa Chu Kang",
+    "west mall": "Bukit Batok", "hillv2": "Hillview", "bukit panjang plaza": "Bukit Panjang",
+    "ion": "Orchard", "ngee ann": "Orchard", "takashimaya": "Orchard", "paragon": "Orchard",
+    "wisma": "Orchard", "wheelock": "Orchard", "313": "Somerset", "orchard central": "Somerset",
+    "plaza singapura": "Dhoby Ghaut", "plaza sing": "Dhoby Ghaut", "bugis junction": "Bugis",
+    "bugis+": "Bugis", "bugis plus": "Bugis", "suntec": "Marina Centre", "marina square": "Marina Centre",
+    "marina bay sands": "Marina Bay", "mbs": "Marina Bay", "raffles city": "City Hall",
+    "funan": "City Hall", "great world": "Great World", "united square": "Novena",
+    "velocity": "Novena", "novena square": "Novena", "city square": "Farrer Park",
+    "the star vista": "Buona Vista", "star vista": "Buona Vista", "tampines mall": "Tampines",
+    "tampines one": "Tampines", "century square": "Tampines", "tampines hub": "Tampines",
+    "bedok mall": "Bedok", "white sands": "Pasir Ris", "changi city point": "Expo",
+    "jewel": "Changi Airport", "parkway parade": "Marine Parade", "i12 katong": "Katong",
+    "causeway point": "Woodlands", "northpoint": "Yishun", "sun plaza": "Sembawang",
+    "canberra plaza": "Canberra", "paya lebar quarter": "Paya Lebar", "plq": "Paya Lebar",
+    "kinex": "Paya Lebar", "the seletar mall": "Sengkang", "seletar mall": "Sengkang",
+}
+
+
 def extract_prefs(user_msg, prefs, known_areas=None):
     """Update and return the preferences dict from simple keywords in the user's message.
 
@@ -150,6 +176,12 @@ def extract_prefs(user_msg, prefs, known_areas=None):
         matched = [a for a in known_areas if a.lower() in msg]
         if matched:
             prefs["area"] = max(matched, key=len)
+
+    # A named mall/landmark (e.g. "NEX") is more specific — map it to its area.
+    for landmark, area in MALL_TO_AREA.items():
+        if landmark in msg:
+            prefs["area"] = area
+            break
 
     # Venue type.
     if "hawker" in msg:

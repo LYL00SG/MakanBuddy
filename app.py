@@ -262,12 +262,16 @@ def constraints_note(prefs, past_recs):
 
 def offline_recommend(prefs, intro):
     """Append a recommendation drawn from the local dataset (used when web search fails)."""
-    candidates, _ = recommender.build_candidates(
+    candidates, dropped = recommender.build_candidates(
         get_places(), prefs, st.session_state.past_recommendations
     )
     picks = candidates[:3]
     if not picks:
         return False
+    # Be honest when the guide couldn't match the requested location/filters.
+    if "area" in dropped and prefs.get("area"):
+        intro += (f" (my local guide had nothing matching near **{prefs['area']}**, "
+                  "so here are some from elsewhere — switch on Live web search for that area)")
     record_recs(picks, source="guide")
     st.session_state.messages.append({
         "role": "assistant", "content": intro,
